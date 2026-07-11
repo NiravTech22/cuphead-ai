@@ -90,21 +90,23 @@
   }
   .brand em { font-style: italic; font-weight: 300; color: var(--dim); }
 
-  /* hamburger */
-  .burger {
-    width: 36px; height: 36px; flex: none;
-    background: none; border: 0; cursor: pointer; padding: 8px;
-    display: flex; flex-direction: column; justify-content: center; gap: 5px;
+  /* menu toggle — iOS-style pill switch (existing tokens only) */
+  .menu-switch .track {
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, .10);
+    justify-content: center;
   }
-  .burger span {
-    display: block; height: 1.5px; background: var(--fg); border-radius: 2px;
-    transition: transform .3s cubic-bezier(.4, 0, .2, 1), opacity .2s, width .3s;
+  .menu-switch .track svg {
+    width: 12px; height: 12px; stroke: var(--dim); fill: none;
+    stroke-width: 1.8; opacity: .8; transition: opacity .2s;
   }
-  .burger span:nth-child(2) { width: 70%; }
-  .burger:hover span:nth-child(2) { width: 100%; }
-  body.menu-open .burger span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
-  body.menu-open .burger span:nth-child(2) { opacity: 0; }
-  body.menu-open .burger span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+  .menu-switch input:checked ~ .track svg { opacity: .35; }
+  .menu-switch .knob {
+    transition: transform .23s cubic-bezier(.34, 1.56, .64, 1), background .3s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+  }
+  .menu-switch input:checked ~ .knob { transform: translateX(24px); }
+  .menu-switch:active .knob { transform: scaleX(1.15); transform-origin: left; }
+  .menu-switch input:checked ~ .knob:active { transform-origin: right; }
 
   /* theme switch */
   .switch { position: relative; width: 52px; height: 28px; cursor: pointer; flex: none; }
@@ -341,6 +343,9 @@
   .chip b { color: var(--fg); font-weight: 500; }
   .chip:hover { border-color: var(--line-2); }
 
+  .sugg { margin-top: 26px; }
+  .sugg .label { display: block; margin-bottom: 10px; }
+
   .cites { margin-top: 24px; }
   .cites .label { display: block; margin-bottom: 10px; }
   .cites a {
@@ -448,9 +453,13 @@
 <div class="flora flora-bl" aria-hidden="true"><svg><use href="#sprig"/></svg></div>
 
 <header class="top">
-  <button class="burger" id="burger" aria-label="Menu" aria-expanded="false">
-    <span></span><span></span><span></span>
-  </button>
+  <label class="switch menu-switch" title="Menu">
+    <input type="checkbox" id="menuToggle" aria-label="Open menu" />
+    <span class="track">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </span>
+    <span class="knob"></span>
+  </label>
   <a class="brand" href="#/">Scene <em>Sense</em></a>
   <label class="switch" title="Toggle dark mode">
     <input type="checkbox" id="themeSwitch" aria-label="Toggle dark mode" />
@@ -595,6 +604,14 @@
     <div class="flash" id="profileFlash"></div>
     <p class="note">Stored only in this browser — there is no account server.</p>
 
+    <h3>Content</h3>
+    <div class="row">
+      <div><div class="r-txt">Strict content filter</div>
+        <div class="r-sub">Also blocks R-rated-adjacent scene requests.</div></div>
+      <label class="switch mini-switch"><input type="checkbox" id="filterToggle" checked />
+        <span class="track"></span><span class="knob"></span></label>
+    </div>
+
     <h3>Cookies &amp; data</h3>
     <div class="row">
       <div><div class="r-txt">Remember me on this device</div>
@@ -669,12 +686,12 @@ function route() {
 window.addEventListener('hashchange', route);
 
 // ── drawer ─────────────────────────────────
-const burger = document.getElementById('burger');
+const menuToggle = document.getElementById('menuToggle');
 function openMenu(open) {
   document.body.classList.toggle('menu-open', open);
-  burger.setAttribute('aria-expanded', String(open));
+  menuToggle.checked = open;
 }
-burger.addEventListener('click', () => openMenu(!document.body.classList.contains('menu-open')));
+menuToggle.addEventListener('change', () => openMenu(menuToggle.checked));
 document.getElementById('overlay').addEventListener('click', () => openMenu(false));
 document.getElementById('drawerClose').addEventListener('click', () => openMenu(false));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openMenu(false); });
@@ -740,6 +757,18 @@ function refreshStorageSummary() {
     + ' · ' + cookies + ' cookie' + (cookies === 1 ? '' : 's');
 }
 loadProfile();
+
+// ── content filter strictness (server-side setting) ──
+const filterToggle = document.getElementById('filterToggle');
+fetch('/api/settings').then((r) => r.json())
+  .then((s) => { filterToggle.checked = !!s.filter_strict; })
+  .catch(() => {});
+filterToggle.addEventListener('change', async () => {
+  const fd = new FormData();
+  fd.append('strict', filterToggle.checked ? 'true' : 'false');
+  try { await fetch('/api/settings/filter', { method: 'POST', body: fd }); }
+  catch { filterToggle.checked = !filterToggle.checked; }
+});
 
 // ── examples (hero chips + guide blocks) ───
 document.querySelectorAll('.examples button, .ex-block').forEach((b) =>
@@ -813,6 +842,19 @@ function handle(ev, steps, text, extra) {
     extra.appendChild(d);
   } else if (ev.type === 'done') {
     renderMeta(ev.payload, extra);
+  } else if (ev.type === 'suggestions' && ev.items && ev.items.length) {
+    const wrap = document.createElement('div'); wrap.className = 'sugg';
+    const h = document.createElement('span'); h.className = 'label';
+    h.textContent = 'You might want next';
+    const row = document.createElement('div'); row.className = 'examples';
+    ev.items.forEach((item) => {
+      const b = document.createElement('button');
+      b.textContent = (item.cached ? '⚡ ' : '') + item.label;
+      b.title = item.query;
+      b.addEventListener('click', () => { input.value = item.query; ask(); });
+      row.appendChild(b);
+    });
+    wrap.append(h, row); extra.appendChild(wrap);
   }
 }
 

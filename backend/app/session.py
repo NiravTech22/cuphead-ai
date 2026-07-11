@@ -44,6 +44,9 @@ class LoadedVideo:
 class Session:
     session_id: str
     video: Optional[LoadedVideo] = None
+    # delivered scenes this session: {title, genres, tone, year, ts} — the
+    # "session vibe" layer of the preference engine
+    history: list[dict] = field(default_factory=list)
 
 
 class SessionStore:

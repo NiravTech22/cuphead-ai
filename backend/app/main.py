@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import assistant, config
+from . import filter as content_filter
 from .device import detect
 from .llm import local_model, provider
 from .downloader import download
@@ -142,6 +143,16 @@ def build_emotion(session_id: str, fps: float = config.EMOTION_FPS) -> dict:
     return {"ok": True, **tl}
 
 
+@app.get("/api/settings")
+def get_settings() -> dict:
+    return {"filter_strict": content_filter.is_strict()}
+
+
+@app.post("/api/settings/filter")
+def set_filter(strict: bool = Form(...)) -> dict:
+    return {"filter_strict": content_filter.set_strict(strict)}
+
+
 @app.get("/")
 def index() -> FileResponse:
     dist_index = FRONTEND_DIST / "index.html"
@@ -153,6 +164,22 @@ def index() -> FileResponse:
 # Serve the built React app if present.
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+
+@app.on_event("startup")
+def _warm_kb() -> None:
+    """Preload the CPU KB embedder + index off the request path."""
+    import threading
+
+    def warm():
+        try:
+            from .knowledge import search_knowledge
+
+            search_knowledge("warmup", k=1)
+        except Exception as exc:
+            log.warning("KB warmup failed: %s", exc)
+
+    threading.Thread(target=warm, daemon=True).start()
 
 
 def main() -> None:

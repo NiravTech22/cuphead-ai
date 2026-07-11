@@ -1,0 +1,312 @@
+"""knowledge/seed.py — built-in starter KB: ~60 iconic titles + famous lines.
+
+Lets the knowledge base work out of the box (no API key needed) and serves as
+the acceptance fixture. For depth, run ingest_tmdb (metadata) and
+ingest_subtitles (your own .srt library) afterwards.
+
+    python -m app.knowledge.seed
+"""
+from __future__ import annotations
+
+from ..logging_setup import get_logger
+from . import db
+from .embedder import embed, to_blob
+
+log = get_logger(__name__)
+
+# (title, year, type, genres, overview, popularity)
+TITLES: list[tuple] = [
+    ("The Dark Knight", 2008, "movie", "Action, Crime, Drama",
+     "Batman faces the Joker, a criminal mastermind who plunges Gotham into anarchy and forces the hero to walk the line between vigilante and savior.", 95),
+    ("Blade Runner 2049", 2017, "movie", "Sci-Fi, Drama, Mystery",
+     "A young blade runner unearths a secret that leads him to Rick Deckard, a former blade runner missing for thirty years, in a neon-soaked dystopian future of replicants and holograms.", 80),
+    ("Interstellar", 2014, "movie", "Sci-Fi, Drama, Adventure",
+     "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival, while a father fights time itself to return to his children.", 92),
+    ("Breaking Bad", 2008, "show", "Crime, Drama, Thriller",
+     "A chemistry teacher diagnosed with cancer turns to manufacturing methamphetamine with a former student, descending from family man to drug kingpin Heisenberg.", 94),
+    ("The Godfather", 1972, "movie", "Crime, Drama",
+     "The aging patriarch of an organized crime dynasty transfers control of his empire to his reluctant youngest son Michael Corleone.", 96),
+    ("Star Wars: The Empire Strikes Back", 1980, "movie", "Sci-Fi, Adventure, Fantasy",
+     "Luke Skywalker trains with Yoda while Darth Vader pursues the rebels and reveals a devastating truth about Luke's father.", 90),
+    ("The Terminator", 1984, "movie", "Sci-Fi, Action, Thriller",
+     "A cyborg assassin is sent back in time to kill Sarah Connor, whose unborn son will lead humanity's resistance against the machines.", 85),
+    ("Casablanca", 1942, "movie", "Drama, Romance, War",
+     "A cynical nightclub owner in wartime Morocco must choose between love and virtue when his former lover arrives with her resistance-leader husband.", 88),
+    ("Forrest Gump", 1994, "movie", "Drama, Romance, Comedy",
+     "A slow-witted but kind-hearted man from Alabama witnesses and unwittingly influences several defining historical events in 20th century America.", 91),
+    ("Apollo 13", 1995, "movie", "Drama, History, Thriller",
+     "NASA must devise a strategy to return Apollo 13 to Earth safely after the spacecraft undergoes massive internal damage, putting the lives of the three astronauts on board in jeopardy.", 78),
+    ("The Sixth Sense", 1999, "movie", "Thriller, Drama, Mystery",
+     "A child psychologist tries to help a young boy who claims he can see and talk to the dead.", 82),
+    ("Toy Story", 1995, "movie", "Animation, Family, Comedy",
+     "A cowboy doll is profoundly threatened and jealous when a new spaceman action figure supplants him as the top toy in a boy's bedroom.", 89),
+    ("Titanic", 1997, "movie", "Drama, Romance",
+     "A seventeen-year-old aristocrat falls in love with a poor artist aboard the luxurious, ill-fated R.M.S. Titanic.", 93),
+    ("The Matrix", 1999, "movie", "Sci-Fi, Action",
+     "A computer hacker learns that reality is a simulation created by machines and joins a rebellion to free humanity, choosing the red pill over blissful ignorance.", 94),
+    ("Jaws", 1975, "movie", "Thriller, Adventure, Horror",
+     "A police chief, a marine biologist and a grizzled shark hunter go after a great white shark terrorizing a beach town.", 84),
+    ("Gone with the Wind", 1939, "movie", "Drama, Romance, History",
+     "A manipulative Southern belle carries on a turbulent affair with a blockade runner during the American Civil War.", 80),
+    ("The Wizard of Oz", 1939, "movie", "Fantasy, Family, Adventure",
+     "Young Dorothy and her dog are swept away by a tornado to the magical land of Oz, where she journeys down the yellow brick road to find her way home.", 86),
+    ("Taxi Driver", 1976, "movie", "Crime, Drama, Thriller",
+     "A mentally unstable veteran works as a nighttime taxi driver in New York City, where the perceived decadence and sleaze fuels his urge for violent action.", 83),
+    ("Jerry Maguire", 1996, "movie", "Drama, Romance, Comedy",
+     "A sports agent has a moral epiphany and is fired for expressing it, deciding to put his new philosophy to the test with the only athlete who stays with him.", 74),
+    ("A Few Good Men", 1992, "movie", "Drama, Thriller",
+     "Military lawyer Lieutenant Daniel Kaffee defends Marines accused of murder and uncovers a high-level conspiracy during a dramatic courtroom showdown.", 79),
+    ("Scarface", 1983, "movie", "Crime, Drama",
+     "A Cuban refugee rises to the top of Miami's drug trade through ruthless ambition, building an empire that consumes him.", 85),
+    ("Dirty Harry", 1971, "movie", "Action, Crime, Thriller",
+     "A hard-edged San Francisco police inspector is determined to stop a psychopathic sniper by any means necessary.", 72),
+    ("Sudden Impact", 1983, "movie", "Action, Crime, Thriller",
+     "Inspector Harry Callahan tracks a serial killer while daring criminals to make his day.", 65),
+    ("Rocky", 1976, "movie", "Drama, Sport",
+     "A small-time Philadelphia boxer gets a supremely rare chance to fight the world heavyweight champion in a bout in which he strives to go the distance for his self-respect.", 87),
+    ("Fight Club", 1999, "movie", "Drama, Thriller",
+     "An insomniac office worker and a devil-may-care soap maker form an underground fight club that evolves into something much more, with strict rules about never talking about it.", 90),
+    ("The Silence of the Lambs", 1991, "movie", "Thriller, Crime, Horror",
+     "A young FBI trainee seeks the help of the imprisoned cannibal psychiatrist Hannibal Lecter to catch another serial killer.", 88),
+    ("The Shining", 1980, "movie", "Horror, Thriller",
+     "A family heads to an isolated hotel for the winter where a sinister presence influences the father into violence, while his psychic son sees horrific forebodings.", 87),
+    ("Pulp Fiction", 1994, "movie", "Crime, Drama",
+     "The lives of two mob hitmen, a boxer, a gangster and his wife intertwine in four tales of violence and redemption told out of chronological order.", 93),
+    ("Inception", 2010, "movie", "Sci-Fi, Action, Thriller",
+     "A thief who steals corporate secrets through dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O.", 92),
+    ("Gladiator", 2000, "movie", "Action, Drama, History",
+     "A betrayed Roman general fights his way back as a gladiator to avenge his murdered family and defy an emperor.", 88),
+    ("The Lord of the Rings: The Fellowship of the Ring", 2001, "movie", "Fantasy, Adventure",
+     "A meek Hobbit and eight companions set out on a journey to destroy the One Ring and defeat the Dark Lord Sauron.", 93),
+    ("The Lord of the Rings: The Two Towers", 2002, "movie", "Fantasy, Adventure",
+     "While Frodo and Sam edge closer to Mordor guided by Gollum, the divided fellowship makes a stand against Saruman's armies at Helm's Deep.", 91),
+    ("Star Wars", 1977, "movie", "Sci-Fi, Adventure, Fantasy",
+     "Luke Skywalker joins forces with a Jedi Knight, a cocky pilot, a Wookiee and two droids to save the galaxy from the Empire's Death Star.", 92),
+    ("E.T. the Extra-Terrestrial", 1982, "movie", "Sci-Fi, Family, Adventure",
+     "A troubled child summons the courage to help a friendly alien escape Earth and return to his home planet, phoning home along the way.", 84),
+    ("Back to the Future", 1985, "movie", "Sci-Fi, Comedy, Adventure",
+     "Marty McFly is accidentally sent thirty years into the past in a time-traveling DeLorean invented by the eccentric Doc Brown.", 90),
+    ("Jurassic Park", 1993, "movie", "Sci-Fi, Adventure, Thriller",
+     "A theme park showcasing cloned dinosaurs descends into chaos when the creatures escape, proving that life finds a way.", 91),
+    ("The Avengers", 2012, "movie", "Action, Sci-Fi, Adventure",
+     "Earth's mightiest heroes must come together and learn to fight as a team to stop Loki and his alien army from enslaving humanity.", 89),
+    ("Avengers: Infinity War", 2018, "movie", "Action, Sci-Fi, Adventure",
+     "The Avengers and their allies sacrifice everything in an attempt to stop Thanos before his blitz of devastation collects all six Infinity Stones and erases half of all life with a snap.", 92),
+    ("Black Panther", 2018, "movie", "Action, Sci-Fi, Adventure",
+     "T'Challa returns home to the isolated, technologically advanced African nation of Wakanda to serve as his country's new king, facing a challenger from his own family's past.", 87),
+    ("The Princess Bride", 1987, "movie", "Fantasy, Romance, Comedy",
+     "A farmhand-turned-pirate endures trials to rescue his true love from an unwanted royal marriage, crossing swords with a vengeful Spaniard seeking a six-fingered man.", 81),
+    ("Dead Poets Society", 1989, "movie", "Drama",
+     "An English teacher inspires his students to seize the day and look at poetry and life from new perspectives at a strict boys' preparatory school.", 80),
+    ("Good Will Hunting", 1997, "movie", "Drama, Romance",
+     "A janitor at MIT with a gift for mathematics must work with a therapist to confront his past and find direction, learning it's not his fault.", 84),
+    ("The Shawshank Redemption", 1994, "movie", "Drama, Crime",
+     "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency; hope is a good thing.", 96),
+    ("Se7en", 1995, "movie", "Crime, Thriller, Mystery",
+     "Two detectives hunt a serial killer who uses the seven deadly sins as his motives, ending with a terrible box.", 86),
+    ("The Usual Suspects", 1995, "movie", "Crime, Mystery, Thriller",
+     "A sole survivor tells the twisted events of a heist gone wrong, weaving the legend of the elusive mastermind Keyser Soze.", 82),
+    ("Anchorman: The Legend of Ron Burgundy", 2004, "movie", "Comedy",
+     "A 1970s San Diego news anchor's world is turned upside down by the arrival of an ambitious female reporter; he stays classy.", 74),
+    ("Mean Girls", 2004, "movie", "Comedy",
+     "A homeschooled teenager navigates the vicious social hierarchy of high school and the queen-bee clique known as the Plastics; on Wednesdays they wear pink.", 80),
+    ("The Hunger Games", 2012, "movie", "Sci-Fi, Action, Adventure",
+     "Katniss Everdeen volunteers to take her sister's place in a televised fight to the death, where the odds may or may not be ever in her favor.", 83),
+    ("Harry Potter and the Sorcerer's Stone", 2001, "movie", "Fantasy, Family, Adventure",
+     "An orphaned boy discovers he is a wizard on his eleventh birthday and begins his education at Hogwarts School of Witchcraft and Wizardry.", 90),
+    ("Game of Thrones", 2011, "show", "Fantasy, Drama, Adventure",
+     "Noble families vie for control of the Iron Throne of Westeros while an ancient enemy returns from the frozen north; winter is coming.", 93),
+    ("The Office", 2005, "show", "Comedy",
+     "A mockumentary about the everyday lives of office employees at the Dunder Mifflin paper company in Scranton, Pennsylvania.", 90),
+    ("Friends", 1994, "show", "Comedy, Romance",
+     "Six young friends navigate life, love, and careers in New York City while practically living in each other's apartments and a coffee shop called Central Perk.", 91),
+    ("Stranger Things", 2016, "show", "Sci-Fi, Horror, Drama",
+     "A young boy vanishes in a small Indiana town, uncovering a mystery involving secret experiments, supernatural forces, a parallel dimension, and one strange little girl.", 89),
+    ("The Mandalorian", 2019, "show", "Sci-Fi, Action, Adventure",
+     "A lone bounty hunter in the outer reaches of the galaxy protects a mysterious, force-sensitive child; this is the way.", 84),
+    ("The Wolf of Wall Street", 2013, "movie", "Comedy, Crime, Drama",
+     "Based on the true story of Jordan Belfort, from his rise to a wealthy stock-broker living the high life to his fall involving crime, corruption and the federal government.", 87),
+    ("Whiplash", 2014, "movie", "Drama, Music",
+     "A promising young drummer enrolls at a cut-throat music conservatory where his dreams of greatness are mentored by an instructor who will stop at nothing, not quite my tempo.", 84),
+    ("La La Land", 2016, "movie", "Romance, Drama, Music",
+     "A jazz pianist and an aspiring actress fall in love while pursuing their dreams in Los Angeles, here's to the fools who dream.", 85),
+    ("Oppenheimer", 2023, "movie", "Drama, History, Thriller",
+     "The story of J. Robert Oppenheimer and the development of the atomic bomb; now I am become death, the destroyer of worlds.", 90),
+    ("Dune", 2021, "movie", "Sci-Fi, Adventure, Drama",
+     "Paul Atreides, a brilliant young man born into a great destiny, must travel to the most dangerous planet in the universe; fear is the mind-killer.", 89),
+]
+
+# (title, quote, character, approx_timestamp_seconds or None)
+QUOTES: list[tuple] = [
+    ("The Dark Knight", "Why so serious?", "The Joker", 1560),
+    ("The Dark Knight", "You either die a hero, or you live long enough to see yourself become the villain.", "Harvey Dent", 3300),
+    ("The Dark Knight", "Some men just want to watch the world burn.", "Alfred Pennyworth", 3960),
+    ("The Dark Knight", "It's not about money. It's about sending a message.", "The Joker", 4600),
+    ("Blade Runner 2049", "You look lonely. I can fix that.", "Joi (hologram advertisement)", 8880),
+    ("Blade Runner 2049", "Dying for the right cause. It's the most human thing we can do.", "Freysa", 7900),
+    ("Interstellar", "Love is the one thing we're capable of perceiving that transcends dimensions of time and space.", "Dr. Amelia Brand", 4200),
+    ("Interstellar", "Do not go gentle into that good night. Rage, rage against the dying of the light.", "Professor Brand", 2280),
+    ("Interstellar", "We used to look up at the sky and wonder at our place in the stars. Now we just look down and worry about our place in the dirt.", "Cooper", 900),
+    ("Breaking Bad", "I am the one who knocks!", "Walter White", None),
+    ("Breaking Bad", "Say my name.", "Walter White", None),
+    ("Breaking Bad", "I am not in danger, Skyler. I am the danger.", "Walter White", None),
+    ("Breaking Bad", "Yeah, science!", "Jesse Pinkman", None),
+    ("The Godfather", "I'm gonna make him an offer he can't refuse.", "Don Vito Corleone", 1620),
+    ("The Godfather", "Leave the gun. Take the cannoli.", "Peter Clemenza", 3400),
+    ("The Godfather", "It's not personal, Sonny. It's strictly business.", "Michael Corleone", 4700),
+    ("Star Wars: The Empire Strikes Back", "No, I am your father.", "Darth Vader", 6480),
+    ("Star Wars: The Empire Strikes Back", "Do. Or do not. There is no try.", "Yoda", 4200),
+    ("The Terminator", "I'll be back.", "The Terminator", 3720),
+    ("The Terminator", "Come with me if you want to live.", "Kyle Reese", 1500),
+    ("Casablanca", "Here's looking at you, kid.", "Rick Blaine", 2580),
+    ("Casablanca", "Of all the gin joints in all the towns in all the world, she walks into mine.", "Rick Blaine", 2100),
+    ("Casablanca", "We'll always have Paris.", "Rick Blaine", 5700),
+    ("Casablanca", "Louis, I think this is the beginning of a beautiful friendship.", "Rick Blaine", 6060),
+    ("Forrest Gump", "Mama always said life was like a box of chocolates. You never know what you're gonna get.", "Forrest Gump", 180),
+    ("Forrest Gump", "Run, Forrest, run!", "Jenny Curran", 1080),
+    ("Forrest Gump", "Stupid is as stupid does.", "Forrest Gump", 600),
+    ("Apollo 13", "Houston, we have a problem.", "Jim Lovell", 3300),
+    ("Apollo 13", "Failure is not an option.", "Gene Kranz", 4500),
+    ("The Sixth Sense", "I see dead people.", "Cole Sear", 3480),
+    ("Toy Story", "To infinity and beyond!", "Buzz Lightyear", 1500),
+    ("Toy Story", "There's a snake in my boot!", "Woody", 300),
+    ("Titanic", "I'm the king of the world!", "Jack Dawson", 2280),
+    ("Titanic", "Draw me like one of your French girls.", "Rose DeWitt Bukater", 5100),
+    ("Titanic", "I'll never let go, Jack. I'll never let go.", "Rose DeWitt Bukater", 9900),
+    ("The Matrix", "There is no spoon.", "Spoon Boy", 4200),
+    ("The Matrix", "I know kung fu.", "Neo", 3300),
+    ("The Matrix", "You take the blue pill, the story ends. You take the red pill, you stay in Wonderland.", "Morpheus", 1680),
+    ("The Matrix", "Unfortunately, no one can be told what the Matrix is. You have to see it for yourself.", "Morpheus", 1560),
+    ("Jaws", "You're gonna need a bigger boat.", "Chief Brody", 4860),
+    ("Gone with the Wind", "Frankly, my dear, I don't give a damn.", "Rhett Butler", 13500),
+    ("Gone with the Wind", "After all, tomorrow is another day!", "Scarlett O'Hara", 13800),
+    ("The Wizard of Oz", "Toto, I've a feeling we're not in Kansas anymore.", "Dorothy Gale", 1200),
+    ("The Wizard of Oz", "There's no place like home.", "Dorothy Gale", 5700),
+    ("Taxi Driver", "You talkin' to me?", "Travis Bickle", 3360),
+    ("Jerry Maguire", "Show me the money!", "Rod Tidwell", 1800),
+    ("Jerry Maguire", "You had me at hello.", "Dorothy Boyd", 7620),
+    ("Jerry Maguire", "You complete me.", "Jerry Maguire", 7560),
+    ("A Few Good Men", "You can't handle the truth!", "Colonel Nathan Jessup", 7500),
+    ("Scarface", "Say hello to my little friend!", "Tony Montana", 9600),
+    ("Scarface", "The world is yours.", "Tony Montana", 5400),
+    ("Dirty Harry", "You've got to ask yourself one question: 'Do I feel lucky?' Well, do ya, punk?", "Harry Callahan", 600),
+    ("Sudden Impact", "Go ahead, make my day.", "Harry Callahan", 300),
+    ("Rocky", "Yo, Adrian!", "Rocky Balboa", 7080),
+    ("Rocky", "It ain't about how hard you hit. It's about how hard you can get hit and keep moving forward.", "Rocky Balboa", None),
+    ("Fight Club", "The first rule of Fight Club is: you do not talk about Fight Club.", "Tyler Durden", 2700),
+    ("Fight Club", "His name is Robert Paulson.", "Narrator", 6600),
+    ("The Silence of the Lambs", "I ate his liver with some fava beans and a nice Chianti.", "Hannibal Lecter", 1080),
+    ("The Silence of the Lambs", "Hello, Clarice.", "Hannibal Lecter", None),
+    ("The Shining", "Here's Johnny!", "Jack Torrance", 6780),
+    ("The Shining", "All work and no play makes Jack a dull boy.", "Jack Torrance", 4980),
+    ("The Shining", "Redrum. Redrum. Redrum.", "Danny Torrance", 6300),
+    ("Pulp Fiction", "They call it a Royale with cheese.", "Vincent Vega", 660),
+    ("Pulp Fiction", "Say 'what' again. I dare you, I double dare you!", "Jules Winnfield", 1260),
+    ("Pulp Fiction", "Zed's dead, baby. Zed's dead.", "Butch Coolidge", 6540),
+    ("Inception", "You mustn't be afraid to dream a little bigger, darling.", "Eames", 4980),
+    ("Inception", "An idea is like a virus. Resilient. Highly contagious.", "Cobb", 600),
+    ("Gladiator", "Are you not entertained?", "Maximus", 3900),
+    ("Gladiator", "My name is Maximus Decimus Meridius... and I will have my vengeance, in this life or the next.", "Maximus", 5100),
+    ("Gladiator", "What we do in life echoes in eternity.", "Maximus", 480),
+    ("The Lord of the Rings: The Fellowship of the Ring", "You shall not pass!", "Gandalf", 7620),
+    ("The Lord of the Rings: The Fellowship of the Ring", "One does not simply walk into Mordor.", "Boromir", 5940),
+    ("The Lord of the Rings: The Fellowship of the Ring", "My precious.", "Gollum", 60),
+    ("The Lord of the Rings: The Two Towers", "PO-TA-TOES. Boil 'em, mash 'em, stick 'em in a stew.", "Samwise Gamgee", 3300),
+    ("Star Wars", "May the Force be with you.", "Han Solo", 6600),
+    ("Star Wars", "Help me, Obi-Wan Kenobi. You're my only hope.", "Princess Leia", 2700),
+    ("Star Wars", "These aren't the droids you're looking for.", "Obi-Wan Kenobi", 3000),
+    ("E.T. the Extra-Terrestrial", "E.T. phone home.", "E.T.", 3960),
+    ("Back to the Future", "Roads? Where we're going, we don't need roads.", "Doc Brown", 6600),
+    ("Back to the Future", "Great Scott!", "Doc Brown", 4200),
+    ("Jurassic Park", "Life, uh, finds a way.", "Dr. Ian Malcolm", 2820),
+    ("Jurassic Park", "Hold on to your butts.", "Ray Arnold", 4380),
+    ("Jurassic Park", "Clever girl.", "Robert Muldoon", 6120),
+    ("The Avengers", "That's my secret, Captain. I'm always angry.", "Bruce Banner", 6900),
+    ("The Avengers", "Puny god.", "Hulk", 7200),
+    ("Avengers: Infinity War", "Mr. Stark, I don't feel so good.", "Peter Parker", 8340),
+    ("Avengers: Infinity War", "Perfectly balanced, as all things should be.", "Thanos", 3600),
+    ("Black Panther", "Wakanda forever!", "T'Challa", 6300),
+    ("The Princess Bride", "Hello. My name is Inigo Montoya. You killed my father. Prepare to die.", "Inigo Montoya", 5580),
+    ("The Princess Bride", "As you wish.", "Westley", 300),
+    ("The Princess Bride", "Inconceivable!", "Vizzini", 1200),
+    ("Dead Poets Society", "Carpe diem. Seize the day, boys. Make your lives extraordinary.", "John Keating", 900),
+    ("Dead Poets Society", "O Captain! My Captain!", "Todd Anderson", 7440),
+    ("Good Will Hunting", "It's not your fault.", "Sean Maguire", 6660),
+    ("Good Will Hunting", "How do you like them apples?", "Will Hunting", 2520),
+    ("The Shawshank Redemption", "Get busy living, or get busy dying.", "Andy Dufresne", 7620),
+    ("The Shawshank Redemption", "Hope is a good thing, maybe the best of things, and no good thing ever dies.", "Andy Dufresne", 7680),
+    ("Se7en", "What's in the box?!", "Detective Mills", 6900),
+    ("The Usual Suspects", "The greatest trick the devil ever pulled was convincing the world he didn't exist.", "Verbal Kint", 900),
+    ("Anchorman: The Legend of Ron Burgundy", "I'm kind of a big deal.", "Ron Burgundy", 1500),
+    ("Anchorman: The Legend of Ron Burgundy", "Stay classy, San Diego.", "Ron Burgundy", 300),
+    ("Anchorman: The Legend of Ron Burgundy", "Sixty percent of the time, it works every time.", "Brian Fantana", 2400),
+    ("Mean Girls", "On Wednesdays we wear pink.", "Karen Smith", 1740),
+    ("Mean Girls", "She doesn't even go here!", "Damian", 4440),
+    ("Mean Girls", "Stop trying to make fetch happen. It's not going to happen.", "Regina George", 2700),
+    ("The Hunger Games", "May the odds be ever in your favor.", "Effie Trinket", 900),
+    ("The Hunger Games", "I volunteer as tribute!", "Katniss Everdeen", 960),
+    ("Harry Potter and the Sorcerer's Stone", "You're a wizard, Harry.", "Rubeus Hagrid", 1500),
+    ("Harry Potter and the Sorcerer's Stone", "It does not do to dwell on dreams and forget to live.", "Albus Dumbledore", 5400),
+    ("Game of Thrones", "Winter is coming.", "Ned Stark", None),
+    ("Game of Thrones", "When you play the game of thrones, you win or you die.", "Cersei Lannister", None),
+    ("Game of Thrones", "A Lannister always pays his debts.", "Tyrion Lannister", None),
+    ("Game of Thrones", "Hold the door!", "Hodor", None),
+    ("The Office", "That's what she said.", "Michael Scott", None),
+    ("The Office", "Bears. Beets. Battlestar Galactica.", "Jim Halpert", None),
+    ("The Office", "I'm not superstitious, but I am a little stitious.", "Michael Scott", None),
+    ("Friends", "We were on a break!", "Ross Geller", None),
+    ("Friends", "How you doin'?", "Joey Tribbiani", None),
+    ("Friends", "PIVOT! PIVOT! PIVOT!", "Ross Geller", None),
+    ("Stranger Things", "Friends don't lie.", "Eleven", None),
+    ("Stranger Things", "She's our friend and she's crazy!", "Dustin Henderson", None),
+    ("The Mandalorian", "This is the way.", "The Armorer", None),
+    ("The Mandalorian", "I can bring you in warm, or I can bring you in cold.", "The Mandalorian", None),
+    ("The Wolf of Wall Street", "Sell me this pen.", "Jordan Belfort", 10500),
+    ("The Wolf of Wall Street", "I'm not leaving. The show goes on!", "Jordan Belfort", 7800),
+    ("Whiplash", "Not quite my tempo.", "Terence Fletcher", 1800),
+    ("Whiplash", "There are no two words in the English language more harmful than 'good job'.", "Terence Fletcher", 5580),
+    ("La La Land", "Here's to the ones who dream, foolish as they may seem.", "Mia", 6600),
+    ("Oppenheimer", "Now I am become Death, the destroyer of worlds.", "J. Robert Oppenheimer", 7200),
+    ("Dune", "Fear is the mind-killer.", "Paul Atreides", 1800),
+    ("Dune", "Dreams are messages from the deep.", "Opening narration", 30),
+]
+
+
+def run() -> None:
+    conn = db.connect()
+    try:
+        title_ids: dict[str, int] = {}
+        titles = [t for t in TITLES if t[1]]  # drop placeholder rows
+        for title, year, type_, genres, overview, pop in titles:
+            title_ids[title] = db.upsert_title(
+                conn, title=title, year=year, type_=type_, genres=genres,
+                overview=overview, popularity=pop)
+
+        # wipe + reinsert seed quotes for idempotency
+        seed_tids = tuple(title_ids.values())
+        conn.execute(f"DELETE FROM quotes WHERE title_id IN ({','.join('?'*len(seed_tids))})",
+                     seed_tids)
+        conn.execute("INSERT INTO quotes_fts(quotes_fts) VALUES('rebuild')")
+        quote_rows: list[tuple[int, str]] = []
+        for title, quote, character, ts in QUOTES:
+            if title not in title_ids:
+                continue
+            qid = db.add_quote(conn, title_ids[title], quote, character, ts)
+            quote_rows.append((qid, quote))
+
+        # embed everything (CPU)
+        overviews = [f"{t[0]} ({t[1]}). {t[3]}. {t[4]}" for t in titles]
+        tvecs = embed(overviews)
+        db.put_embeddings(conn, "titles", [
+            (title_ids[t[0]], to_blob(v)) for t, v in zip(titles, tvecs)])
+        qvecs = embed([q for _, q in quote_rows])
+        db.put_embeddings(conn, "quotes", [
+            (qid, to_blob(v)) for (qid, _), v in zip(quote_rows, qvecs)])
+        conn.commit()
+        log.info("seeded KB: %s", db.stats(conn))
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    run()

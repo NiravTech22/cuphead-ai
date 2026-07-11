@@ -25,6 +25,12 @@ ASSISTANT_MODEL = os.getenv("SCENE_SENSE_MODEL", "claude-opus-4-8")
 # A cheaper model for the moment-ranker fallback.
 RANKER_MODEL = os.getenv("SCENE_SENSE_RANKER_MODEL", "claude-haiku-4-5-20251001")
 
+# --- Knowledge base ----------------------------------------------------------
+# Free key: https://www.themoviedb.org -> Settings -> API (v3). Used only by
+# `python -m app.knowledge.ingest_tmdb` to deepen the local movies.db.
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
+KB_TMDB_DEPTH = int(os.getenv("SCENE_SENSE_KB_DEPTH", "5000"))
+
 # --- Speed / models ----------------------------------------------------------
 # Whisper model size (tiny|base|small|...). Empty = auto-pick per device profile.
 WHISPER_MODEL = os.getenv("SCENE_SENSE_WHISPER_MODEL", "")
@@ -42,6 +48,11 @@ CLIP_PAD_SECONDS = float(os.getenv("SCENE_SENSE_CLIP_PAD", "1.5"))
 CLIP_MAX_SECONDS = float(os.getenv("SCENE_SENSE_CLIP_MAX", "45"))
 # A pinned one-liner can be ~2s; expand symmetrically so clips don't feel abrupt.
 CLIP_MIN_SECONDS = float(os.getenv("SCENE_SENSE_CLIP_MIN", "6"))
+
+# --- Content filter ----------------------------------------------------------
+FILTER_STRICT = os.getenv("FILTER_STRICT", "true").strip().lower() in ("1", "true", "yes")
+BLOCKED_TERMS_PATH = Path(os.getenv("SCENE_SENSE_BLOCKED_TERMS",
+                                    BACKEND_DIR / "blocked_terms.txt"))
 
 # --- Server ----------------------------------------------------------------
 HOST = os.getenv("SCENE_SENSE_HOST", "127.0.0.1")

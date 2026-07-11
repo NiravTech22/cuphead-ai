@@ -16,17 +16,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import uuid
 from typing import Iterator, Optional
 
+from . import filter as content_filter
 from . import source_id, verifier, websearch
 from .clipper import make_clip
+from .knowledge import CONFIDENT as KB_CONFIDENT
+from .knowledge import search_knowledge
 from .downloader import cached_download, download, search
 from .llm import chat as llm_chat
-from .llm import local_model, provider
+from .llm import extract_json, local_model, provider
 from .logging_setup import get_logger
+from . import prefs
 from .moment_finder import find_moment
 from .session import STORE, LoadedVideo, Session
 from .transcriber import release_model, transcribe
@@ -42,10 +47,14 @@ Two kinds of request:
 
 A) "show me / find / play the scene (or clip/moment/part) where ..." — the user wants
    the actual clip. You MUST, in order:
-     1. find_and_fetch_video  (unless a video is already loaded) — use a specific query
-        such as an official movie CLIP title (you may call identify_source first to get it).
-     2. locate_moment  — find the exact window in the loaded video.
-     3. make_clip  — cut it. Only AFTER a clip exists do you write the final answer.
+     1. identify_source_from_kb  — ALWAYS FIRST. The local knowledge base resolves vague
+        quotes/vibes to a title instantly. If it returns kb_hit=true, TRUST its top
+        candidate; do NOT second-guess it with identify_source or web_search.
+        Only if kb_hit=false, fall back to identify_source / web_search.
+     2. find_and_fetch_video  (unless a video is already loaded) — use a specific query
+        built from the identified title (e.g. "<title> <quote> official scene").
+     3. locate_moment  — find the exact window in the loaded video.
+     4. make_clip  — cut it. Only AFTER a clip exists do you write the final answer.
    Do NOT call verify_quote for these. Do NOT describe the scene before the clip is made.
 
 B) "did they really say X" / "what's the exact line" — call verify_quote only.
@@ -83,6 +92,11 @@ def _tools() -> list[dict]:
         }
 
     return [
+        fn("identify_source_from_kb", "FIRST STOP for identifying the movie/show behind a "
+           "quote, scene description, or vibe. Instant local knowledge-base lookup; returns "
+           "ranked candidates {title, year, confidence, matched_quote, timestamp} and kb_hit. "
+           "Trust a kb_hit=true top candidate.",
+           {"query": {"type": "string"}}, ["query"]),
         fn("web_search", "Search the web for facts (source identification, exact quotes). "
            "Returns titles, urls, snippets.", {"query": {"type": "string"}}, ["query"]),
         fn("identify_source", "Identify the SOURCE (movie/show/video) of a scene from dialogue "
@@ -114,6 +128,8 @@ class _Result:
         self.timestamp: Optional[float] = None
         self.verification: Optional[dict] = None
         self.citations: list[dict] = []
+        self.kb_match: Optional[dict] = None     # confident KB candidate for this query
+        self.kb_hint_ts: Optional[float] = None  # matched quote timestamp (full-source time)
 
 
 def _run_tool(name: str, args: dict, session: Session, result: _Result,
@@ -126,6 +142,19 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
             return fn(*a, **kw)
         finally:
             timings[phase] = timings.get(phase, 0.0) + (time.perf_counter() - t0)
+
+    if name == "identify_source_from_kb":
+        hits = _timed("kb", search_knowledge, args.get("query", ""), 5)
+        kb_hit = bool(hits and hits[0]["confidence"] >= KB_CONFIDENT)
+        if kb_hit:
+            top = hits[0]
+            result.kb_match = top
+            result.source = result.source or f'{top["title"]} ({top["year"]})'
+            if top.get("timestamp") is not None:
+                result.kb_hint_ts = float(top["timestamp"])
+        log.info("[%s] KB %s: top=%s", qid, "hit" if kb_hit else "miss",
+                 f'{hits[0]["title"]} conf={hits[0]["confidence"]}' if hits else None)
+        return {"kb_hit": kb_hit, "candidates": hits[:5]}
 
     if name == "web_search":
         results = websearch.search(args.get("query", ""))
@@ -173,12 +202,25 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
     if name == "locate_moment":
         if not session.video or not session.video.transcript:
             return {"error": "no video loaded; call find_and_fetch_video first"}
+        # KB quote timestamps are full-source times; only useful if this video is
+        # long enough to plausibly contain that point.
+        hint = None
+        if result.kb_hint_ts is not None and session.video.duration >= result.kb_hint_ts:
+            hint = result.kb_hint_ts
+            log.info("[%s] locate_moment using KB timestamp hint %.0fs", qid, hint)
         moment = _timed("locate", find_moment, args["query"], session.video.transcript,
-                        emotion_timeline=session.video.emotion_timeline or None)
+                        emotion_timeline=session.video.emotion_timeline or None,
+                        hint_t=hint)
         if not moment:
             log.info("[%s] locate_moment: no match in transcript of %r (%s)",
                      qid, session.video.title, session.video.path)
             return {"error": "no matching moment found"}
+        # outbound filter: if the located scene itself is explicit, withhold it
+        blocked = content_filter.check(moment.quote)
+        if blocked:
+            log.info("[%s] blocked outbound scene (category=%s)", qid, blocked)
+            return {"error": "this scene isn't available — tell the user so, briefly, "
+                             "and do not retry or describe it"}
         result.quote = moment.quote
         result.dominant_emotion = moment.dominant_emotion
         result.timestamp = moment.start
@@ -189,6 +231,10 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
     if name == "make_clip":
         if not session.video:
             return {"error": "no video loaded"}
+        blocked = content_filter.check(args.get("quote") or result.quote)
+        if blocked:
+            log.info("[%s] blocked make_clip (category=%s)", qid, blocked)
+            return {"error": "this scene isn't available — tell the user so, briefly"}
         clip = _timed("clip", make_clip,
                       session.video.path, float(args["start"]), float(args["end"]),
                       quote=args.get("quote", result.quote or ""),
@@ -209,7 +255,43 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
     return {"error": f"unknown tool {name}"}
 
 
+def _naturalize_suggestions(suggestions: list[dict]) -> list[dict]:
+    """One tight LLM call to phrase suggestions naturally; template fallback."""
+    if not suggestions:
+        return suggestions
+    try:
+        listing = "\n".join(f'[{i}] {s["title"]} ({s["year"]})'
+                            + (f' — line: "{s["query"].split(chr(39))[1][:60]}"'
+                               if "'" in s["query"] else "")
+                            for i, s in enumerate(suggestions))
+        resp = llm_chat([
+            {"role": "system",
+             "content": "You suggest movie scenes. For each candidate write ONE short "
+                        "tap-to-ask suggestion (max 10 words) that MUST include the "
+                        "movie/show title, e.g. 'The \"why so serious\" scene from The "
+                        "Dark Knight?'. Never invent lines. Reply ONLY JSON: "
+                        '{"suggestions": ["...", ...]} in the same order.'},
+            {"role": "user", "content": listing},
+        ])
+        data = extract_json(resp.text) or {}
+        texts = data.get("suggestions") or []
+        for s, t in zip(suggestions, texts):
+            if not isinstance(t, str) or not 3 < len(t) < 90:
+                continue
+            # reject hallucinated quotes/titles: anything quoted in the label must
+            # actually belong to this candidate
+            quoted = re.findall(r"[\'\"“‘]([^\'\"”’]{3,})[\'\"”’]", t)
+            known = (s.get("query", "") + " " + s.get("title", "")).lower()
+            if any(q.lower() not in known for q in quoted):
+                continue  # keep the accurate template label
+            s["label"] = t.strip().strip('"')
+    except Exception as exc:
+        log.warning("suggestion naturalization failed (%s); using templates", exc)
+    return suggestions
+
+
 _STEP_LABELS = {
+    "identify_source_from_kb": "checking knowledge base",
     "web_search": "searching the web",
     "identify_source": "identifying source",
     "find_and_fetch_video": "fetching video",
@@ -235,6 +317,20 @@ def run(question: str, session_id: str = "default") -> Iterator[dict]:
         session.video = None
 
     log.info("[%s] question (session=%s): %s", qid, session_id, question)
+
+    # ── inbound content filter: refuse cleanly, never run the tool loop ──────
+    blocked = content_filter.check(question)
+    if blocked:
+        log.info("[%s] blocked inbound query (category=%s)", qid, blocked)
+        yield {"type": "text", "delta": content_filter.REFUSAL}
+        yield {"type": "done", "payload": {
+            "request_id": qid, "explanation": content_filter.REFUSAL,
+            "clip_url": None, "clip": None, "source": None, "quote": None,
+            "dominant_emotion": None, "timestamp": None, "verification": None,
+            "citations": [], "video": None, "filtered": True,
+        }}
+        return
+
     result = _Result()
     if session.video:
         result.source = session.video.title or None
@@ -377,6 +473,34 @@ def run(question: str, session_id: str = "default") -> Iterator[dict]:
         "video": session.video.summary() if session.video else None,
     }
     yield {"type": "done", "payload": payload}
+
+    # ── preference engine: record + predict (after done, so the answer is
+    # never delayed; suggestions stream in as a trailing event) ──────────────
+    if result.clip:
+        try:
+            title = (result.kb_match or {}).get("title") or result.source or ""
+            if title:
+                prefs.record_delivery(session, title=title, quote=result.quote or "",
+                                      tone=result.dominant_emotion)
+                t0 = time.perf_counter()
+                suggestions = prefs.suggest_next(session, title=title,
+                                                 quote=result.quote or "",
+                                                 tone=result.dominant_emotion)
+                suggestions = _naturalize_suggestions(suggestions)
+                # suggestions are filtered before they ever render
+                dropped = [s for s in suggestions
+                           if content_filter.check(s["label"]) or content_filter.check(s["query"])]
+                if dropped:
+                    log.info("[%s] dropped %d filtered suggestion(s)", qid, len(dropped))
+                suggestions = [s for s in suggestions if s not in dropped]
+                log.info("[%s] suggestions (%.1fs): %s", qid, time.perf_counter() - t0,
+                         [s["label"] for s in suggestions])
+                if suggestions:
+                    yield {"type": "suggestions",
+                           "items": [{"label": s["label"], "query": s["query"],
+                                      "cached": s["cached"]} for s in suggestions]}
+        except Exception:
+            log.exception("[%s] suggestion generation failed", qid)
 
 
 def _cli() -> None:

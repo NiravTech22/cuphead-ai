@@ -213,6 +213,7 @@ def find_moment(
     emotion_timeline: Optional[list[dict]] = None,
     use_llm_fallback: bool = True,
     top_k: int = 5,
+    hint_t: Optional[float] = None,
 ) -> Optional[Moment]:
     # Fast path: an explicitly quoted line pins the moment via word timestamps.
     quoted = _QUOTE_RE.search(query)
@@ -247,6 +248,8 @@ def find_moment(
     scored: list[tuple[float, _Window, float]] = []
     for base, w in zip(cos, windows):
         bonus = 0.06 if (prior and w.emotion == prior) else 0.0
+        if hint_t is not None:  # KB timestamp hint: prefer windows near it
+            bonus += 0.1 * max(0.0, 1.0 - abs(w.start - hint_t) / 90.0)
         scored.append((base + bonus, w, base))
     scored.sort(key=lambda x: x[0], reverse=True)
 
