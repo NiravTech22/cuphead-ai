@@ -1,0 +1,21 @@
+# Secrets
+backend/.env
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Generated data (clips, downloads, transcripts, uploads)
+backend/clips/*
+!backend/clips/.gitkeep
+backend/data/
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS / editor
+.DS_Store

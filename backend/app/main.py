@@ -1,0 +1,166 @@
+"""main.py — FastAPI app: streaming chat (SSE), /clips static mount, video load.
+
+Endpoints:
+  GET  /api/health                      -> status + device profile + api-key presence
+  GET  /api/chat?question=&session_id=  -> Server-Sent Events stream of the answer
+  POST /api/load_url                     -> {url, session_id}: fetch+transcribe a video
+  POST /api/upload                       -> multipart file: upload+transcribe a video
+  GET  /api/session/{session_id}         -> loaded-video summary + emotion timeline
+  POST /api/emotion/{session_id}         -> build the emotion timeline for the loaded video
+  /clips/*                               -> static clip files (inline <video> playback)
+  /                                      -> minimal built-in chat harness (or the React build)
+"""
+from __future__ import annotations
+
+import json
+import shutil
+from pathlib import Path
+
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+
+from . import assistant, config
+from .device import detect
+from .llm import local_model, provider
+from .downloader import download
+from .frame_emotion import build_timeline
+from .logging_setup import get_logger
+from .session import STORE, LoadedVideo
+from .transcriber import transcribe
+
+log = get_logger(__name__)
+
+app = FastAPI(title="Scene Sense")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Serve exported clips so the frontend can embed them inline.
+app.mount("/clips", StaticFiles(directory=str(config.CLIPS_DIR)), name="clips")
+
+FRONTEND_DIST = config.BACKEND_DIR.parent / "frontend" / "dist"
+STATIC_HARNESS = Path(__file__).resolve().parent / "static"
+
+
+@app.get("/api/health")
+def health() -> dict:
+    prov = provider()
+    return {
+        "status": "ok",
+        "device": detect(),
+        "llm_provider": prov,
+        "model": local_model() if prov == "ollama" else config.ASSISTANT_MODEL,
+    }
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
+
+
+@app.get("/api/chat")
+def chat(question: str, session_id: str = "default") -> StreamingResponse:
+    """Stream the assistant's answer as Server-Sent Events. Runs in a threadpool."""
+
+    def gen():
+        try:
+            for event in assistant.run(question, session_id):
+                yield _sse(event)
+        except Exception as exc:  # never crash the stream
+            log.exception("chat stream error")
+            yield _sse({"type": "error", "message": str(exc)})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/load_url")
+def load_url(url: str = Form(...), session_id: str = Form("default")) -> dict:
+    """Fetch a video by URL, transcribe it, and load it into the session (Mode A)."""
+    info = download(url)
+    if not info.local_path:
+        return {"ok": False, "error": "download failed"}
+    transcript = transcribe(info.local_path)
+    session = STORE.get(session_id)
+    session.video = LoadedVideo(
+        path=info.local_path,
+        title=info.title,
+        channel=info.channel,
+        webpage_url=info.webpage_url,
+        duration=info.duration,
+        transcript=transcript,
+        video_id=info.id,
+        pinned=True,  # user-loaded: survives across questions
+    )
+    return {"ok": True, "video": session.video.summary()}
+
+
+@app.post("/api/upload")
+def upload(file: UploadFile = File(...), session_id: str = Form("default")) -> dict:
+    """Upload a local video file, transcribe it, and load it into the session."""
+    dest = config.UPLOADS_DIR / file.filename
+    with dest.open("wb") as f:
+        shutil.copyfileobj(file.file, f)
+    transcript = transcribe(str(dest))
+    session = STORE.get(session_id)
+    session.video = LoadedVideo(
+        path=str(dest),
+        title=file.filename,
+        duration=transcript.duration,
+        transcript=transcript,
+        pinned=True,  # user-loaded: survives across questions
+    )
+    return {"ok": True, "video": session.video.summary()}
+
+
+@app.get("/api/session/{session_id}")
+def get_session(session_id: str) -> dict:
+    session = STORE.get(session_id)
+    if not session.video:
+        return {"video": None, "emotion_timeline": []}
+    return {
+        "video": session.video.summary(),
+        "emotion_timeline": session.video.emotion_timeline,
+    }
+
+
+@app.post("/api/emotion/{session_id}")
+def build_emotion(session_id: str, fps: float = config.EMOTION_FPS) -> dict:
+    """Build the facial-EXPRESSION timeline for the loaded video (step 8)."""
+    session = STORE.get(session_id)
+    if not session.video:
+        return {"ok": False, "error": "no video loaded"}
+    tl = build_timeline(session.video.path, fps=fps)
+    session.video.emotion_timeline = tl["timeline"]
+    return {"ok": True, **tl}
+
+
+@app.get("/")
+def index() -> FileResponse:
+    dist_index = FRONTEND_DIST / "index.html"
+    if dist_index.exists():
+        return FileResponse(str(dist_index))
+    return FileResponse(str(STATIC_HARNESS / "index.html"))
+
+
+# Serve the built React app if present.
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+
+def main() -> None:
+    import uvicorn
+
+    log.info("starting Scene Sense on %s:%s", config.HOST, config.PORT)
+    uvicorn.run(app, host=config.HOST, port=config.PORT)
+
+
+if __name__ == "__main__":
+    main()
