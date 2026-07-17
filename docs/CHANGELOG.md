@@ -1,8 +1,219 @@
 # Scene Sense — Changelog
 
+## [2026-07-17] To-the-Stars Phase 5 — Scene DNA card + demo script v2
+
+**What was built.** A "⬡ Scene DNA" button on every clip result generates a
+1200×630 PNG share card, rendered SERVER-SIDE with Pillow (ADR-013):
+desaturated key frame from the clip midpoint under an espresso gradient,
+the quote in serif italic (adaptive size, ≤3 lines, content-filtered before
+drawing — as is the title), source + timestamp + emotion in tracked caps,
+the Phase-0 emotion waveform as the "DNA" strip (±10s context, autoscaled
+so uniform-intensity clips still read as a shape), and the wordmark with a
+restrained line-dot ornament. Dark-token palette only. `GET
+/api/dna/{clip_id}` serves it as an attachment — download-only, no hosting,
+no share links. `docs/DEMO_SCRIPT.md` rewritten as the 90-second five-beat
+sequence (speak → waveform → vibe → glass box → DNA card) with the full
+pre-demo checklist.
+
+**Files created/modified.** `backend/app/dna.py` (new),
+`backend/app/main.py`, `backend/app/static/index.html`,
+`docs/DEMO_SCRIPT.md`.
+
+**Key decisions.** ADR-013 (server-side Pillow, download-only).
+
+**How it was verified.** Direct render inspected at full size (two
+iterations: the first strip was a flat slab on a uniformly intense clip;
+autoscale + context fixed it). In-app: clicking ⬡ Scene DNA downloaded
+`scene-dna-<id>.png` (260KB) via the browser download event. Final
+regression sweep in one session: carousel (12 cards) + header icon buttons
++ mic present; scene A (Dark Knight, ⚡ cached, scrubber, 3 suggestion
+chips) → unrelated scene B (Interstellar, clip) with clean isolation;
+blocked query → polite refusal, no clip; Recent chips (2) on return visit.
+**Demo-ready: yes.**
+
+## [2026-07-17] To-the-Stars Phase 4 — Glass-box agent panel
+
+**What was built.** The pipeline now emits `trace` SSE events at every REAL
+step — one terse ≤80-char line per tool result plus one per LLM turn
+(`kb.search "…" → hit/miss (conf)`, `fetch (cache hit): … · N segs`,
+`locate: 3.8s–6.9s (score 0.59)`, `ffmpeg: cut 6.0s clip`, `vibe: below
+threshold — honest miss`), each stamped with seconds since query start.
+Nothing is fabricated or timer-driven; lines are derived from actual tool
+outputs in the same generator, riding the existing SSE stream
+(fire-and-forget, zero added latency). Frontend: a slim fixed panel
+(bottom-right; full-width above the dock on mobile) in monospace metadata
+styling — collapsed by default to a one-line ticker of the current step,
+expandable, open/closed remembered in localStorage, with per-query
+separators and scrollback across the session.
+
+**Files modified.** `backend/app/assistant.py`,
+`backend/app/static/index.html`.
+
+**Key decisions.** Trace lines are constructed at the yield site from real
+tool outputs — the panel cannot show a step that didn't run.
+
+**How it was verified.** Matrix query with the panel open: 10 lines
+streamed; three spot-checked 1:1 against server logs for the same request —
+"fetch (cache hit)" ↔ `download cache hit for j_urZ5KDPec`, "locate:
+3.8s–6.9s" ↔ `chose [3.84-6.86]`, "ffmpeg: cut 6.0s clip" ↔ `clip -> …
+(6.0s)`. All lines ≤80 chars; ticker showed the live step and settled to
+"agent idle"; open state persisted; a second (vibe) query appended under a
+new separator with history intact. Panel hidden entirely until first use.
+**Demo-ready: yes.**
+
+## [2026-07-17] To-the-Stars Phase 3 — Vibe search
+
+**What was built.** A `vibe_search` tool the orchestration LLM calls when a
+query describes a feeling rather than an identifiable scene (prompt case C;
+no keyword regex — the model decides). `app/vibe.py` builds a CPU-only
+index over PROCESSED videos: ~22s transcript scene-windows, each with a
+MiniLM embedding + mean Phase-0 emotion vector, cached to
+`data/vibe_index.json`. Score = 0.6·text-cosine + 0.4·emotion-cosine
+against targets from editable `backend/feelings.json` (feeling-word →
+emotion-vector; text-only when no feeling word matches). Threshold 0.42,
+one scene per video for variety, results content-filtered. Top-3 render as
+compact theme cards (on-demand desaturated thumbs served at `/vibe/`) with
+a one-line why ("high sad, feeling-matched dialogue — 47% vibe match");
+clicking a card submits a normal fresh clip query. Below threshold → an
+honest empty note, never a fake match. The clip-nudge logic is bypassed
+when vibe_search ran.
+
+**Files created/modified.** `backend/app/vibe.py` (new),
+`backend/feelings.json` (new), `backend/app/assistant.py`,
+`backend/app/main.py`, `backend/app/static/index.html`.
+
+**Key decisions.** ADR-012 (blend weights + threshold; honest empty).
+
+**How it was verified.** Four distinct queries: "quiet heartbreak" →
+Blade Runner "you look lonely" / Dark Knight sad window / No Strings
+Attached; "menacing threat" → Breaking Bad "one who knocks" on top; "pure
+joy and celebration" → honest empty state (the cached library genuinely
+has no joyful scene above threshold); "existential dread" → highest-fear
+scene. Warm latency 0.01–0.23s (<2s target). Full UI e2e: LLM invoked the
+tool, 3 cards rendered, clicking the top card delivered the Blade Runner
+2049 (2017) clip via the standard loop. **Demo-ready: yes.**
+
+## [2026-07-17] To-the-Stars Phase 2 — Emotion scrubber
+
+**What was built.** Every delivered clip now renders a 64px interactive
+emotional waveform under the player, built from the Phase-0 timeline for
+the clip's window (clip `source_path` → videoId → `/api/emotions`). Custom
+SVG, no chart look: Catmull-Rom-smoothed 1.5px accent line over
+per-dominant-emotion area slices, each a vertical gradient of a
+color-mix-derived token tint fading to transparent (no new raw colors).
+Hover: hairline cursor + lowercase caption ("angry · 0:51") in the
+metadata typography; click seeks the video (clip-relative); a playhead
+hairline tracks playback; touch = tap to seek, hold ≥350ms for the
+caption. Entrance draws the line left-to-right (600ms stroke-dashoffset);
+reduced-motion renders instantly. Fewer than 8 timeline points → no
+scrubber (honest absence, e.g. dialogueless sources).
+
+**Files modified.** `backend/app/static/index.html`.
+
+**Key decisions.** Consumes ADR-010's contract; tints derived exclusively
+from existing tokens via color-mix.
+
+**How it was verified.** Live Breaking Bad query: scrubber rendered; click
+at 50% seeked to 3.23s of a 6.01s clip (±0.5s target met); playhead
+advanced past midpoint during playback; hover caption read "angry · 0:51"
+— emotionally correct for the "I am the danger" beat. Screenshot confirms
+it reads as native linework, with ⚡ badge and suggestion chips intact
+alongside. **Demo-ready: yes** (voice-in + waveform-out both live).
+
+## [2026-07-17] To-the-Stars Phase 1 — Voice search
+
+**What was built.** A thin line-art mic button inside the input bar with
+idle / recording (accent pulse ring, 1.2s period, live 0:SS elapsed
+readout) / transcribing states. Capture via MediaRecorder (webm/opus),
+click-to-stop, 15s hard stop. New `POST /api/voice` transcribes with the
+EXISTING faster-whisper install (no second instance; a new module-level
+lock in transcriber.py serializes the single model between voice and the
+pipeline). The transcript passes the content filter BEFORE returning — a
+blocked transcript never reaches the client (polite refusal, input
+cleared). On success the text lands visibly in the input for a 1.2s
+editable beat (typing cancels the auto-submit), then submits through the
+normal clean-context loop. Mic-permission denial disables the button with
+"Mic unavailable"; the app is otherwise unaffected. Transcription time and
+device are logged per call.
+
+**Files created/modified.** `backend/app/main.py`,
+`backend/app/transcriber.py`, `backend/app/static/index.html`.
+
+**Key decisions.** ADR-011 (voice reuses the one Whisper via a lock;
+filter-before-return).
+
+**How it was verified.** Direct endpoint: 8s of real movie audio
+transcribed in **0.87s** on the warm model (target ≤3s), device=cuda, no
+new model loaded. Full e2e with Chrome's fake-mic fed a synthesized spoken
+query: recording state + timer showed, transcript "Show me the scene in
+the dark night where the Joker says why so serious." landed in the input,
+auto-submitted after the beat, and the correct Dark Knight clip was
+delivered (KB absorbed the "dark night" homophone). Permission-denial
+path: button disabled, title "Mic unavailable", rest of the app usable.
+**Demo-ready: yes.**
+
+## [2026-07-17] To-the-Stars Phase 0 — Shared emotion-data contract
+
+**What was built.** One per-video contract file
+`data/emotions/<videoId>.emotions.json`: {videoId, source, fps_sampled,
+duration, points:[{t, emotions:{7 classes}, dominant, intensity}]}, where
+**intensity = 1 − P(neutral)** (documented choice, ADR-010). Generator
+"transcript-affect-v1": each transcript segment is embedded with the
+existing CPU MiniLM and softmaxed against per-emotion anchor sentences —
+zero new models, zero VRAM (the facial `fer` detector was never installed;
+when it is, it can write the same contract). `app/emotion_data.py` exposes
+`build_for_video`, `classify`, `get_timeline(videoId, start, end)` (linear
+resampling, ≥40 and ≤200 plot-ready points), a `--backfill` CLI, and
+`GET /api/emotions/{video_id}?start&end`. `video_id` added to the session
+video summary so the frontend can address timelines.
+
+**Files created/modified.** `backend/app/emotion_data.py` (new),
+`backend/app/main.py`, `backend/app/session.py`.
+
+**Key decisions.** ADR-010 (single contract; dialogue-affect generator).
+
+**How it was verified.** Backfill produced emotions.json for 14/17 cached
+videos — the 3 without are dialogueless (UFC montage, Sardaukar chant, Cars
+engine scene): no data is fabricated for them and the accessor/endpoint
+return an empty-points contract cleanly. Spot-check: the Dark Knight scar
+monologue window (93–99s) resolves to angry/disgust at 0.77–0.86 intensity.
+Endpoint returned 40 resampled points for that window; full video capped
+at 200.
+
 Reverse-chronological. Every engagement-layer phase gets a dated entry on
 completion: what was built, files created/modified, key decisions, and how it
 was verified.
+
+## [2026-07-17] Header controls replaced: morphing menu icon + celestial theme button
+
+**What was built.** Both header pill switches are gone. Menu (top-left): an
+icon-only button with two staggered strokes (18/12px, 1.5px weight) that
+MORPH into a ✕ over 250ms (rotate + translate, no fade); hover nudges the
+lines 2px and lifts opacity; `aria-expanded`/`aria-controls` + live
+aria-label. Theme (top-right): an icon-only button drawing a thin line-art
+sun whose rays retract while a masked "bite" circle slides in (CSS cx/cy
+geometry transitions on SVG mask + arc, ~350ms) to carve a line-art
+crescent — a real morph, not a crossfade — with a soft 1.05 scale pulse on
+click; aria-label/title always state the action ("Switch to light mode").
+Both controls: 40×40 hit areas with negative margins so header metrics are
+unchanged, accent focus-visible rings, reduced-motion instant swaps (global
+rule). Theme logic untouched — the button only flips `data-theme` and
+persists as before. The pill `.switch` component survives solely for the
+Settings mini toggles.
+
+**Files modified.** `backend/app/static/index.html`.
+
+**Key decisions.** ADR-009 (header controls differentiated by function).
+
+**How it was verified.** Headless Chrome: zero `.switch` elements in the
+header; menu open set aria-expanded=true with a rotated stroke (computed
+transform) and closed back on Esc; mid-transition the bite circle's
+computed `cx` read 15.97px between its 19px and 14.8px endpoints — proof of
+interpolation, not a swap; rays' opacity hit 0 in dark; theme toggled
+dark→light→dark with localStorage persistence and aria-labels updating;
+Enter on each focused control operated it (menu open/close, theme toggle);
+3× zoom screenshots of light (sun), dark (crescent), and menu-open (✕)
+states; Settings mini-switches confirmed intact.
 
 ## [2026-07-16] Featured rail → auto-scrolling carousel, scrollbars removed
 

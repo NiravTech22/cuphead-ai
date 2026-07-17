@@ -31,6 +31,7 @@ class LoadedVideo:
     def summary(self) -> dict:
         return {
             "title": self.title,
+            "video_id": self.video_id,
             "channel": self.channel,
             "duration": self.duration,
             "webpage_url": self.webpage_url,

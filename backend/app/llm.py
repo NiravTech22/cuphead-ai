@@ -44,10 +44,14 @@ class LLMResponse:
         self.tool_calls = tool_calls or []  # [{id, name, arguments(dict)}]
 
 
-def chat(messages: list[dict], tools: Optional[list[dict]] = None) -> LLMResponse:
+def chat(messages: list[dict], tools: Optional[list[dict]] = None,
+         options: Optional[dict] = None, job=None) -> LLMResponse:
+    """`options` merges into provider options (e.g. num_predict for asides).
+    `job` (a jobs.Job) makes the call cancellable: the Ollama stream is
+    registered with the job and closed on cancel, which ends generation."""
     p = provider()
     if p == "ollama":
-        return _ollama(messages, tools)
+        return _ollama(messages, tools, options, job)
     if p == "anthropic":
         return _anthropic(messages, tools)
     if p == "openai":
@@ -94,10 +98,10 @@ def _log_ollama_residency(model: str) -> None:
         log.debug("ollama ps failed: %s", exc)
 
 
-def _ollama(messages, tools) -> LLMResponse:
+def _ollama(messages, tools, options=None, job=None) -> LLMResponse:
     import ollama
 
-    from . import config
+    from . import config, jobs
 
     model = local_model()
     # Ollama accepts OpenAI-style messages & tools; assistant tool_calls want
@@ -122,21 +126,58 @@ def _ollama(messages, tools) -> LLMResponse:
         else:
             msgs.append({"role": m["role"], "content": m.get("content", "") or ""})
 
-    resp = ollama.chat(
-        model=model,
-        messages=msgs,
-        tools=tools or None,
-        options={"temperature": 0.2},  # low temp = steadier tool output
-        keep_alive=config.OLLAMA_KEEP_ALIVE,  # stay resident between calls
-    )
+    opts = {"temperature": 0.2, **(options or {})}  # low temp = steadier tools
+    kw = dict(model=model, messages=msgs, tools=tools or None, options=opts,
+              keep_alive=config.OLLAMA_KEEP_ALIVE)
+
+    def _collect(msg, text, calls):
+        text += msg.get("content", "") or ""
+        for tc in (msg.get("tool_calls") or []):
+            fn = tc["function"]
+            calls.append({"id": tc.get("id") or fn["name"],
+                          "name": fn["name"], "arguments": _norm_args(fn["arguments"])})
+        return text
+
+    text, calls = "", []
+    try:
+        # Streaming so a cancel can CLOSE the stream — dropping the connection
+        # ends Ollama's generation (per-request serving).
+        stream = ollama.chat(stream=True, **kw)
+        aborted = {"v": False}
+
+        def _abort():
+            aborted["v"] = True
+            try:
+                stream.close()
+            except Exception:
+                pass
+
+        if job is not None:
+            jobs.register_abort(_abort, job)
+        try:
+            for chunk in stream:
+                text = _collect(chunk["message"], text, calls)
+                if job is not None and job.cancelled:
+                    _abort()
+                    raise jobs.JobCancelled(job.id)
+        finally:
+            if job is not None:
+                jobs.unregister_abort(_abort, job)
+        if aborted["v"] and job is not None:
+            raise jobs.JobCancelled(job.id)
+    except jobs.JobCancelled:
+        raise
+    except Exception as exc:
+        if job is not None and job.cancelled:
+            raise jobs.JobCancelled(job.id) from exc
+        # some client/model combos can't stream tool calls — fall back once
+        log.warning("ollama streaming failed (%s); non-streaming fallback", exc)
+        resp = ollama.chat(stream=False, **kw)
+        text, calls = "", []
+        text = _collect(resp["message"], text, calls)
+
     _log_ollama_residency(model)
-    msg = resp["message"]
-    calls = []
-    for tc in (msg.get("tool_calls") or []):
-        fn = tc["function"]
-        calls.append({"id": tc.get("id") or fn["name"],
-                      "name": fn["name"], "arguments": _norm_args(fn["arguments"])})
-    return LLMResponse(text=msg.get("content", "") or "", tool_calls=calls)
+    return LLMResponse(text=text, tool_calls=calls)
 
 
 # ---------- HOSTED FALLBACK: Anthropic ----------

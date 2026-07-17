@@ -138,8 +138,31 @@ def download(url: str) -> VideoInfo:
             log.info("download cache hit: %s -> %s", url, hit.local_path)
             return hit
     log.info("downloading: %s", url)
+    from . import jobs
+
+    def _cancel_hook(d):
+        # Raises JobCancelled inside yt-dlp's download loop, aborting it.
+        # Register every artifact of this video id as a partial; safe because
+        # we only ever download ids that are NOT already in the cache, and
+        # download() unregisters the pattern after a fully successful run.
+        fn = d.get("filename")
+        if fn:
+            vid_stem = Path(fn).name.split(".")[0]
+            if vid_stem:
+                jobs.register_temp(config.DOWNLOADS_DIR / f"{vid_stem}.*")
+        jobs.check()
+
+    opts = _base_opts(quiet=True)
+    opts["progress_hooks"] = [_cancel_hook]
+    try:
+        with YoutubeDL(opts) as ydl:
+            entry = ydl.extract_info(url, download=True)
+    except jobs.JobCancelled:
+        raise
+    except Exception:
+        jobs.check()   # if we were cancelled, surface THAT, not yt-dlp's wrap
+        raise
     with YoutubeDL(_base_opts(quiet=True)) as ydl:
-        entry = ydl.extract_info(url, download=True)
         # requested_downloads gives the true merged output path
         path = None
         if entry.get("requested_downloads"):
@@ -153,6 +176,9 @@ def download(url: str) -> VideoInfo:
     info.local_path = str(path) if path and Path(path).exists() else None
     log.info("downloaded -> %s", info.local_path)
     _write_sidecar(info)
+    # completed artifact: keep it — unregister its partial pattern
+    if info.local_path:
+        jobs.unregister_temp(config.DOWNLOADS_DIR / f"{Path(info.local_path).name.split('.')[0]}.*")
     return info
 
 

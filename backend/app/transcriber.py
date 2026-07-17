@@ -12,6 +12,7 @@ import argparse
 import functools
 import hashlib
 import json
+import threading
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -121,24 +122,34 @@ def _cache_path(path: str) -> Path:
     return config.TRANSCRIPTS_DIR / f"{_cache_key(path)}.json"
 
 
-def transcribe(path: str, use_cache: bool = True) -> Transcript:
+# One Whisper instance serves both the pipeline and voice search; serialize.
+_model_lock = threading.Lock()
+
+
+def transcribe(path: str, use_cache: bool = True, cancel_job=None) -> Transcript:
     cache = _cache_path(path)
     if use_cache and cache.exists():
         log.info("transcript cache hit -> %s", cache.name)
         return Transcript.from_dict(json.loads(cache.read_text()))
 
-    model = _get_model()
-    log.info("transcribing %s ...", path)
-    seg_iter, info = model.transcribe(
-        path,
-        word_timestamps=True,
-        vad_filter=True,
-        beam_size=config.WHISPER_BEAM,
-    )
-    segments: list[Segment] = []
-    for s in seg_iter:
-        words = [Word(w.start, w.end, w.word) for w in (s.words or [])]
-        segments.append(Segment(start=s.start, end=s.end, text=s.text, words=words))
+    with _model_lock:
+        model = _get_model()
+        log.info("transcribing %s ...", path)
+        seg_iter, info = model.transcribe(
+            path,
+            word_timestamps=True,
+            vad_filter=True,
+            beam_size=config.WHISPER_BEAM,
+        )
+        segments: list[Segment] = []
+        for s in seg_iter:
+            if cancel_job is not None and cancel_job.cancelled:
+                # abort between segments; nothing cached (partial transcripts
+                # must never enter the cache)
+                from .jobs import JobCancelled
+                raise JobCancelled(cancel_job.id)
+            words = [Word(w.start, w.end, w.word) for w in (s.words or [])]
+            segments.append(Segment(start=s.start, end=s.end, text=s.text, words=words))
     transcript = Transcript(
         source_path=str(Path(path).resolve()),
         language=info.language,

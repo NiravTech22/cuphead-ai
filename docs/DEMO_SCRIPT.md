@@ -1,70 +1,81 @@
-# Scene Sense — Demo Script (written 2026-07-15, Phase 5)
+# Scene Sense — Demo Script v2 (2026-07-17)
 
-A click-by-click walkthrough for demoing the engagement layer to clients.
-Executable by someone who didn't build the app. Timings measured on the
-reference machine (RTX 3050 4GB, Ollama `qwen2.5:7b`, warm caches).
+A 90-second, five-beat sequence. Each beat lands one idea; don't narrate the
+plumbing — the app shows it.
 
 ---
 
-## Pre-demo checklist (~10 minutes, day of demo)
+## Pre-demo checklist (~10 min, day of)
 
-1. **Ollama is up with the model pulled**
-   ```bash
-   ollama list            # must show qwen2.5:7b
-   ```
-2. **Warm the model** (first LLM call after idle costs ~10s extra; the app
-   sets `keep_alive=30m`, so one throwaway request keeps it resident):
+1. **Ollama up + warm** (`ollama list` shows `qwen2.5:7b`, then one throwaway
+   generate with `keep_alive=30m`):
    ```bash
    curl -s http://localhost:11434/api/generate \
      -d '{"model":"qwen2.5:7b","prompt":"ok","stream":false,"keep_alive":"30m"}' >/dev/null
    ```
-3. **Start the backend**
+2. **Pre-process list** — these must be in `data/downloads/` with transcripts
+   (run each query once the night before if the cache is cold): Dark Knight
+   "why so serious", Breaking Bad "one who knocks", Interstellar messages,
+   Matrix "guns lots of guns", Blade Runner 2049 "you look lonely".
+3. **Regenerate derived data**:
    ```bash
-   cd backend && .venv/bin/python -m app.main
+   cd backend
+   .venv/bin/python -m app.emotion_data --backfill      # emotions.json per video
+   .venv/bin/python -m app.generate_featured_assets     # carousel thumbs + loops
+   rm -f data/vibe_index.json                           # rebuilt on first vibe query
    ```
-   `curl http://127.0.0.1:8000/api/health` → expect `"device": "cuda"`,
-   `"llm_provider": "ollama"`. The startup log must show
-   `placeholder examples pass content filter`.
-4. **Verify the video cache** — the demo leans on these already-processed
-   sources (in `backend/data/downloads/`): The Dark Knight ("why so
-   serious", `PoyejjJGajk`), Breaking Bad ("one who knocks"), Interstellar
-   (23 years of messages), The Matrix ("guns, lots of guns" + Trinity),
-   Blade Runner 2049 ("you look lonely"). On a fresh machine, run each
-   featured card's query once the night before to fill the download +
-   transcript caches.
-5. **Generate featured assets** (idempotent, cache-only, ~5s):
-   ```bash
-   .venv/bin/python -m app.generate_featured_assets
-   ```
-   `curl http://127.0.0.1:8000/api/featured` → 6 items.
-6. **Seed the returning-user moment**: open http://127.0.0.1:8000 in the
-   demo browser, run one successful query (click the "why so serious"
-   example chip), wait for the clip, close the tab. This stores the visit
-   count and one Recent chip. (To demo the *first-visit* state instead:
-   Settings → "Clear everything".)
-7. Pick light or dark theme in the demo browser (both are polished);
-   100% zoom.
+4. **Start** `.venv/bin/python -m app.main`; check `/api/health` (cuda +
+   ollama) and the startup log line `placeholder examples pass content filter`.
+5. **Seed localStorage**: open the app, run one successful query (any example
+   chip), close the tab → returning-user greeting + a Recent chip for beat 1.
+   Leave the glass-box panel COLLAPSED (default) so beat 4 has a reveal.
+6. **Mic check**: browser has mic permission for localhost; speak once to
+   confirm levels. Quiet room or lean close.
+7. Run one vibe query ("feels like quiet heartbreak") to build the vibe index
+   off-stage (~6s first time), so beat 3 is instant.
 
-## The demo flow
+## The five beats (~90s)
 
-| # | Action | What to say | Expect |
-|---|--------|-------------|--------|
-| 1 | Open http://127.0.0.1:8000 | "It remembers you — locally. Nothing leaves the machine." | "Welcome back. Where should we look today?" headline; placeholder examples cycling in the input; Recent chip; Featured rail. Instant. |
-| 2 | Hover 2–3 featured cards slowly | "These previews are cut from footage the pipeline actually processed — no stock, no scraping." | Muted 3s loops play instantly on hover; card lifts. |
-| 3 | Click the **Interstellar** card → "Get this scene" | "One click re-runs the full find→fetch→locate→clip pipeline, fresh." | Overlay → stepper (knowledge base → fetching → locating → cutting) with the spinning reel → playable clip, Source chip "Interstellar", "⚡ cached" badge, 2–3 suggestion chips. **~15–25s.** |
-| 4 | Click the **Recent** chip (the seeded Dark Knight quest) | "Your history is a launcher, not a filter bubble — it re-asks from scratch." | Correct Dark Knight clip again, ⚡ cached. **~15–25s.** |
-| 5 | **+ Modes → Analyze Context**, then ask: `show me the 'I am the one who knocks' scene from Breaking Bad` | "Same retrieval, richer read-out: context, emotion, why it matters." | Clip + a 5–8 sentence explanation. **~25–40s** (longer generation). |
-| 6 | Dismiss the mode chip (✕). **+ Modes → Extract Metadata**, ask: `show me the scene in The Dark Knight where the Joker says 'why so serious'` | "And for tooling/integration people: the structured layer underneath." | No prose — expanded strip: Source, Line, At, Window, Duration, KB confidence (~97%), Match. **~15–25s.** |
-| 7 | *(Optional)* type a blocked request | "Guardrails are on every surface — inputs, suggestions, even old history." | One-line polite refusal, no pipeline run, UI keeps flowing. |
-| 8 | *(Optional, honest cold run)* ask for an uncached scene, e.g. `show me the scene in Cars where Lightning McQueen gets a makeover` | "Cold path: it searches, downloads, transcribes on-GPU, then cuts." | Stepper keeps progress visible. **~60–120s** — only do this if the room wants to see the real pipeline. |
+**Beat 1 — Speak it (0:00–0:25).**
+Click the mic. Say, clearly: *"Show me the scene in The Dark Knight where the
+Joker says why so serious."* The words appear in the input — pause a breath so
+the room sees speech become text — then it submits itself. The stepper reels
+through kb → fetch → locate → clip; the scene lands with "⚡ cached".
+> Say: "Nothing typed. Local speech-to-text, straight into the agent."
 
-## Timing notes
+**Beat 2 — The scene has a pulse (0:25–0:45).**
+Point at the waveform drawing in under the player. Hover it slowly — "angry ·
+0:51" follows the cursor. Click the tallest peak: the video jumps there.
+> Say: "That's the scene's emotional intensity — computed locally. Click a
+> peak, land on the beat."
 
-- The "Scene found in X.Xs" badge only appears when a query completes in
-  **under 8s** (`TIMING_BADGE_MAX_S` in `app/static/index.html`); with a
-  local 7B model most warm runs land ~15–25s, so expect the **⚡ cached**
-  badge alone — that is by design (never advertise slow runs).
-- If Ollama went idle >30 min, the first query eats a ~10s model reload;
-  re-run step 2 of the checklist.
-- If YouTube search hiccups on the optional cold run, fall back to a
-  featured card — everything else in the demo is cache-backed and offline.
+**Beat 3 — Search by feeling (0:45–1:05).**
+Type (or speak): *"find me a scene that feels like quiet heartbreak."* Three
+scene cards return — Blade Runner's "you look lonely" on top, with the why:
+"high sad, feeling-matched dialogue — 47% vibe match." Click it; the clip
+delivers through the normal pipeline.
+> Say: "No title, no quote — just a mood, matched against what it's already
+> watched. And if nothing truly matches, it says so instead of guessing."
+
+**Beat 4 — Glass box (1:05–1:20).**
+Before the clip of beat 3 finishes, expand the ticker at bottom-right. Scroll
+the log: `kb.search → miss`, `fetch (cache hit)`, `locate: 3.8s–6.9s (score
+0.59)`, `ffmpeg: cut 6.0s clip` — timestamped, real.
+> Say: "Every line is the actual pipeline, not an animation. This is how it
+> found the scene."
+
+**Beat 5 — Take it with you (1:20–1:30).**
+On the Dark Knight result, click **⬡ Scene DNA**. A 1200×630 card downloads:
+key frame, the quote in serif, the emotional waveform as the DNA strip.
+Open it full-screen. Hold.
+> Say: "Every scene, with its fingerprint. Generated locally, yours to keep."
+
+## Expected timings & recovery
+
+- Cached queries: ~15–25s wall (LLM-dominated); the reel + stepper carry it.
+- Vibe query (warm index): <1s to cards.
+- Voice: stop-to-text ≤1s warm; first call after idle ~+3s (model load).
+- If the mic misfires, the transcript is editable — fix a word and hit enter;
+  that's a feature, show it.
+- If a beat stalls, the featured carousel is the safety net: hover a card,
+  click "Get this scene" — everything in it is cache-backed.

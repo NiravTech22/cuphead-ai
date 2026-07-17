@@ -23,7 +23,8 @@ import uuid
 from typing import Iterator, Optional
 
 from . import filter as content_filter
-from . import source_id, verifier, websearch
+from . import jobs
+from . import source_id, verifier, vibe, websearch
 from .clipper import make_clip
 from .knowledge import CONFIDENT as KB_CONFIDENT
 from .knowledge import search_knowledge
@@ -58,6 +59,13 @@ A) "show me / find / play the scene (or clip/moment/part) where ..." — the use
    Do NOT call verify_quote for these. Do NOT describe the scene before the clip is made.
 
 B) "did they really say X" / "what's the exact line" — call verify_quote only.
+
+C) The query describes a FEELING / mood / atmosphere with no identifiable title,
+   character, or quote ("something that feels like quiet heartbreak") — call
+   vibe_search. It searches the local processed library by feeling. After it
+   returns, write 1-2 sentences summarizing the matches (the UI renders the
+   scene cards itself); if it returns no results, say so plainly and suggest
+   processing more videos. Do NOT call any other tool for these queries.
 
 RULES:
 - You identify the WORK (film/show/video), never a person by their face.
@@ -135,6 +143,11 @@ def _tools() -> list[dict]:
         fn("verify_quote", "Verify/correct a possibly-misremembered quote. Returns the exact "
            "line + source + confidence; hedges when unverifiable.",
            {"quote": {"type": "string"}, "source_context": {"type": "string"}}, ["quote"]),
+        fn("vibe_search", "Search the LOCAL processed library by FEELING/mood — use when "
+           "the query describes an atmosphere ('feels like quiet heartbreak') rather than "
+           "an identifiable scene. Returns top matching scenes {title, start, end, why} "
+           "or an honest empty result.",
+           {"query": {"type": "string"}}, ["query"]),
     ]
 
 
@@ -154,7 +167,7 @@ class _Result:
 
 
 def _run_tool(name: str, args: dict, session: Session, result: _Result,
-              qid: str = "-", timings: Optional[dict] = None) -> dict:
+              qid: str = "-", timings: Optional[dict] = None, job=None) -> dict:
     timings = timings if timings is not None else {}
 
     def _timed(phase: str, fn, *a, **kw):
@@ -204,7 +217,7 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
             info = _timed("download", download, found[0].webpage_url)
         if not info.local_path:
             return {"error": "download failed", "query": query}
-        transcript = _timed("transcribe", transcribe, info.local_path)
+        transcript = _timed("transcribe", transcribe, info.local_path, cancel_job=job)
         release_model()  # free Whisper VRAM so the local LLM doesn't spill to CPU
         session.video = LoadedVideo(
             path=info.local_path, title=info.title, channel=info.channel,
@@ -267,6 +280,9 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
             result.timestamp = clip.start
         return {"clip_url": clip.url, "start": clip.start, "end": clip.end, "duration": clip.duration}
 
+    if name == "vibe_search":
+        return _timed("vibe", vibe.search, args.get("query", ""))
+
     if name == "verify_quote":
         data = verifier.verify_quote(args["quote"], args.get("source_context"))
         result.verification = data
@@ -313,6 +329,39 @@ def _naturalize_suggestions(suggestions: list[dict]) -> list[dict]:
     return suggestions
 
 
+def _trace_line(name: str, args: dict, out: dict, result: "_Result") -> Optional[str]:
+    """One terse (≤80 char) glass-box line per REAL tool result. Never fabricated."""
+    q = str(args.get("query") or args.get("quote") or "")[:26]
+    if name == "identify_source_from_kb":
+        c = (out.get("candidates") or [{}])[0]
+        return (f'kb.search "{q}" → hit: {str(c.get("title", "?"))[:24]} ({c.get("confidence", 0):.2f})'
+                if out.get("kb_hit") else f'kb.search "{q}" → miss')
+    if name == "web_search":
+        return f'web.search "{q}" → {len(out.get("results") or [])} results'
+    if name == "identify_source":
+        return f'source.id → {str(out.get("source_title") or "unresolved")[:40]}'
+    if name == "find_and_fetch_video":
+        if out.get("error"):
+            return f'fetch: {str(out["error"])[:56]}'
+        how = "cache hit" if result.cache_hit else "yt-dlp download"
+        return f'fetch ({how}): {str(out.get("title", "?"))[:30]} · {out.get("transcript_segments", 0)} segs'
+    if name == "locate_moment":
+        if out.get("error"):
+            return f'locate: {str(out["error"])[:56]}'
+        return f'locate: {out["start"]:.1f}s–{out["end"]:.1f}s (score {out.get("score", 0):.2f})'
+    if name == "make_clip":
+        if out.get("error"):
+            return f'clip: {str(out["error"])[:56]}'
+        return f'ffmpeg: cut {out.get("duration", 0):.1f}s clip'
+    if name == "vibe_search":
+        rs = out.get("results") or []
+        return (f'vibe: {len(rs)} scene(s), top {rs[0]["score"]:.2f}' if rs
+                else 'vibe: below threshold — honest miss')
+    if name == "verify_quote":
+        return f'verify: {str(out.get("source") or out.get("verdict") or "checked")[:46]}'
+    return None
+
+
 _STEP_LABELS = {
     "identify_source_from_kb": "checking knowledge base",
     "web_search": "searching the web",
@@ -325,14 +374,45 @@ _STEP_LABELS = {
 
 
 def run(question: str, session_id: str = "default", mode: str = "find") -> Iterator[dict]:
-    """Yield events: status / text / tool / clip / done. The core interaction.
+    """Yield events: job / status / text / tool / clip / done (or cancelled).
 
-    `mode` (find|analyze|metadata) only appends a final-answer instruction
-    AFTER the clip is located/cut — retrieval is identical in every mode."""
+    Wraps the pipeline in a Job so POST /api/cancel/{job_id} can truly stop
+    it: checkpoints raise JobCancelled, subprocesses are killed, the LLM
+    stream is closed, partial temp files are removed (see jobs.py)."""
     if mode not in ("find", "analyze", "metadata"):
         mode = "find"
     qid = uuid.uuid4().hex[:8]
     t_start = time.perf_counter()
+    job = jobs.start(qid, question)
+    yield {"type": "job", "job_id": qid}
+    if not jobs.pipeline_gate.acquire(timeout=180):
+        jobs.finish(job, "failed")
+        yield {"type": "error", "message": "engine busy — another query is still running"}
+        return
+    job.gate_held = True
+    prev = jobs.current()          # whoever ran the pipeline before us
+    jobs.activate(job)
+    log.info("[%s] job start: prior job=%s(%s) — no state inherited "
+             "(per-query isolation)", qid, prev.id if prev else "-",
+             prev.status if prev else "-")
+    try:
+        yield from _run_impl(question, session_id, mode, qid, job, t_start)
+        jobs.finish(job, "done")
+    except jobs.JobCancelled:
+        log.info("[%s] pipeline halted at cancellation checkpoint", qid)
+        yield {"type": "trace", "line": "cancelled by user",
+               "t": round(time.perf_counter() - t_start, 1)}
+        yield {"type": "cancelled", "job_id": qid}
+        jobs.finish(job, "cancelled")
+    except Exception:
+        jobs.finish(job, "failed")
+        raise
+    finally:
+        jobs.release_gate(job)
+
+
+def _run_impl(question: str, session_id: str, mode: str, qid: str,
+              job: "jobs.Job", t_start: float) -> Iterator[dict]:
     timings: dict[str, float] = {}
     session = STORE.get(session_id)
 
@@ -383,10 +463,15 @@ def run(question: str, session_id: str = "default", mode: str = "find") -> Itera
     mode_nudged = False
 
     for _turn in range(9):
+        jobs.check(job)                       # checkpoint: before each LLM turn
+        yield {"type": "trace", "t": round(time.perf_counter() - t_start, 1),
+               "line": f"llm: turn {_turn + 1} → {provider()}:{local_model()}"}
         try:
             t0 = time.perf_counter()
-            resp = llm_chat(messages, tools=_tools())
+            resp = llm_chat(messages, tools=_tools(), job=job)
             timings["llm"] = timings.get("llm", 0.0) + (time.perf_counter() - t0)
+        except jobs.JobCancelled:
+            raise
         except Exception as exc:
             log.exception("llm.chat failed")
             yield {"type": "error",
@@ -406,7 +491,8 @@ def run(question: str, session_id: str = "default", mode: str = "find") -> Itera
         if not resp.tool_calls:
             # Small models often stop early or narrate a fake tool call. If this is a
             # clip request and no clip exists yet, nudge toward the next real tool.
-            if clip_request and result.clip is None and nudges < 3:
+            if (clip_request and result.clip is None and nudges < 3
+                    and "vibe_search" not in called):
                 nudges += 1
                 if not session.video and "find_and_fetch_video" not in called:
                     step = ("You have NOT fetched a video yet. Call find_and_fetch_video now "
@@ -435,13 +521,17 @@ def run(question: str, session_id: str = "default", mode: str = "find") -> Itera
         for tc in resp.tool_calls:
             name, args, tid = tc["name"], tc["arguments"], tc["id"]
             called.add(name)
+            jobs.check(job)                   # checkpoint: before each stage
             yield {"type": "status", "step": _STEP_LABELS.get(name, name)}
             yield {"type": "tool", "name": name, "input": args}
             try:
-                out = _run_tool(name, args, session, result, qid, timings)
+                out = _run_tool(name, args, session, result, qid, timings, job)
+            except jobs.JobCancelled:
+                raise
             except Exception as exc:
                 log.exception("[%s] tool %s failed", qid, name)
                 out = {"error": str(exc)}
+            job.resolved_title = result.source or job.resolved_title
 
             # Batch locate -> clip: cutting is deterministic once the moment is
             # found, so skip the extra LLM round-trip on clip requests.
@@ -452,7 +542,7 @@ def run(question: str, session_id: str = "default", mode: str = "find") -> Itera
                 try:
                     clip_out = _run_tool("make_clip",
                                          {"start": out["start"], "end": out["end"]},
-                                         session, result, qid, timings)
+                                         session, result, qid, timings, job)
                     out = {**out, "clip": clip_out,
                            "note": ("clip already cut — follow the MODE instruction in "
                                     "the next message; do NOT call make_clip"
@@ -467,6 +557,16 @@ def run(question: str, session_id: str = "default", mode: str = "find") -> Itera
                 yield {"type": "clip", "clip": result.clip}
             messages.append({"role": "tool", "tool_call_id": tid, "name": name,
                              "content": json.dumps(out)[:4000]})
+            line = _trace_line(name, args, out, result)
+            if line:
+                yield {"type": "trace", "line": line,
+                       "t": round(time.perf_counter() - t_start, 1)}
+            if name == "locate_moment" and isinstance(out.get("clip"), dict):
+                yield {"type": "trace",   # the batched auto-cut is a real step too
+                       "line": f'ffmpeg: cut {out["clip"].get("duration", 0):.1f}s clip',
+                       "t": round(time.perf_counter() - t_start, 1)}
+            if name == "vibe_search" and out.get("results"):
+                yield {"type": "vibe", "items": out["results"]}
 
         # Mode instruction: appended once, only AFTER the clip exists, so the
         # retrieval path stays identical across modes (per-query isolation).

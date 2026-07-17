@@ -4,6 +4,104 @@ Dated, ADR-style. One short entry per non-obvious choice.
 
 ---
 
+## ADR-013 — 2026-07-17 — Scene DNA renders server-side with Pillow
+
+**Context.** The share card needs the source video's key frame, real fonts,
+the emotion timeline, and the content filter — all of which live server-side.
+A client canvas would re-download frame data, fight font loading, and
+duplicate filter logic in JS.
+
+**Decision.** One `GET /api/dna/{clip_id}` composes the PNG with Pillow
+(already installed): ffmpeg key frame, DejaVu Serif italic for the quote
+(closest system face to the site's serif voice — Fraunces isn't installed
+locally and bundling a webfont for one image wasn't worth it), tracked-caps
+metadata, autoscaled waveform strip, dark-token palette. Served as a
+Content-Disposition attachment: download-only, no hosting, no og-tags.
+
+**Consequences.** ~1s per card, zero client complexity, filter runs where
+it lives. The serif is an approximation of Fraunces; dropping a Fraunces
+TTF next to dna.py and pointing SERIF/SERIF_IT at it upgrades fidelity with
+no code change.
+
+## ADR-012 — 2026-07-17 — Vibe scoring: 0.6 text + 0.4 emotion, threshold 0.42
+
+**Context.** "Feels like quiet heartbreak" has two signals: what the
+dialogue *means* (semantic) and how the scene *feels* (Phase-0 emotion
+profile). Either alone misfires — pure text matches words like "heart",
+pure emotion can't tell two sad scenes apart.
+
+**Decision.** Blended cosine score: `0.6·cos(query_emb, scene_text_emb) +
+0.4·cos(feeling_target, scene_emotion)`, where feeling targets come from an
+editable `feelings.json` (word → emotion vector); with no feeling word
+matched, scoring is text-only. Floor 0.42 (tuned on the current library so
+real matches clear it and off-vibe scenes don't); below it the tool returns
+an empty result and the assistant says so — a fake match would poison trust
+in every other answer. One scene per video in the top-3 for variety.
+
+**Consequences.** CPU-only, ~0.2s warm. The joy query on today's library
+returns the empty state — correct, if unflattering; the fix is processing
+more videos, which the empty-state copy says.
+
+## ADR-011 — 2026-07-17 — Voice reuses the single Whisper, filter-before-return
+
+**Context.** The 4GB GPU already hosts Whisper transiently plus the LLM; a
+second ASR instance is not an option, and voice transcripts are a new
+inbound surface the content filter must own.
+
+**Decision.** `/api/voice` calls the same `transcribe()` as the pipeline; a
+module-level lock added in transcriber.py serializes all model access (the
+lock lives where the model lives, so both callers get it for free). The
+filter runs server-side on the transcript BEFORE the response — a blocked
+utterance returns only the standard refusal string, never the text. The
+client shows the transcript for a 1.2s editable beat before auto-submitting
+so the speech→text moment is visible and correctable.
+
+**Consequences.** Zero VRAM delta; a voice request during an active
+pipeline transcription waits briefly instead of racing the model. Blocked
+speech is never rendered, logged only by category.
+
+## ADR-010 — 2026-07-17 — One emotion contract; dialogue-affect generator
+
+**Context.** Three features (scrubber, vibe search, DNA card) consume
+emotion timelines. The facial detector (`fer`) was never installed — it
+drags in TensorFlow, and the 4GB GPU is already committed to Whisper +
+Ollama. New GPU-resident models are banned.
+
+**Decision.** A single, generator-agnostic contract per video
+(`<videoId>.emotions.json`, 7-class distribution + dominant + intensity per
+point; intensity = 1 − P(neutral), i.e. "how charged is this moment").
+Today's generator scores emotion from the *dialogue*: transcript segments
+embedded on the existing CPU MiniLM, softmax over cosine similarity to a
+small set of per-emotion anchor sentences (T=0.06). Videos without usable
+dialogue get no file — consumers must handle absence honestly rather than
+render fabricated feeling.
+
+**Consequences.** Zero VRAM, ~ms per segment, works for every transcribed
+video retroactively. The signal reflects what is *said* rather than shown —
+good for dialogue-driven scenes, blind to silent visuals; a future facial
+generator can write the same file and consumers won't change.
+
+## ADR-009 — 2026-07-17 — Header controls differentiated by function
+
+**Context.** The menu opener and the theme toggle were both iOS pill
+switches — a navigation control and a state control wearing the same
+clothes, and two identical pills bracketing the wordmark competed with it.
+
+**Decision.** Morphing icon for menu (staggered strokes → ✕, 250ms
+transform morph), celestial morph for theme (line-art sun → crescent via
+CSS geometry transitions on an SVG mask, 350ms + 1.05 pulse). Both are
+quiet icon-only buttons in existing tokens with ≥40px hit areas and
+negative margins preserving header metrics; reduced-motion collapses both
+morphs to instant swaps via the existing global rule. The pill switch
+survives only where it genuinely represents a boolean setting (Settings
+mini toggles).
+
+**Consequences.** Control shape now communicates control kind; the header
+reads as punctuation around the wordmark. The crescent relies on CSS
+cx/cy geometry-property animation (supported in all evergreen browsers);
+if a legacy browser ignores it, the states still render correctly —
+only the tween is lost.
+
 ## ADR-008 — 2026-07-15 — Timing badge is conditional and client-measured
 
 **Context.** A local-7B pipeline is impressive when cached (~15–25s) but a

@@ -41,7 +41,10 @@ class Clip:
 
 def _run(cmd: list[str]) -> subprocess.CompletedProcess:
     log.debug("ffmpeg: %s", " ".join(cmd))
-    return subprocess.run(cmd, capture_output=True, text=True)
+    from . import jobs
+
+    # registered with the current job so cancel() can SIGTERM the child
+    return jobs.run_proc(cmd)
 
 
 def _has_stream(path: str, kind: str) -> bool:
@@ -108,7 +111,11 @@ def make_clip(
             "-movflags", "+faststart", str(out),
         ]
 
+    from . import jobs
+
+    jobs.register_temp(out)                       # partial clip until success
     cp = _run(cmd)
+    jobs.unregister_temp(out)
     if cp.returncode != 0 or not out.exists() or out.stat().st_size == 0:
         # Fall back to a re-encode if stream-copy failed.
         if not do_reencode:
