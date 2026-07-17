@@ -67,6 +67,25 @@ RULES:
   it together. No step narration."""
 
 
+# ── modes (Phase 3): prompt/render variations over the SAME loop ─────────────
+# A mode is per-query metadata. It never changes retrieval: identify/fetch/
+# locate/clip run identically; the instruction below is appended only AFTER
+# the clip exists. mode == "find" is the default and leaves behavior untouched.
+MODE_INSTRUCTIONS = {
+    "analyze": (
+        "MODE — Analyze Context. The clip is cut. In your final answer, after "
+        "naming the scene, ALSO explain it: what leads into this moment, the "
+        "emotional read (use the dominant emotion / emotion data you saw in the "
+        "tool results), and why the moment matters in the story. 5–8 sentences, "
+        "grounded ONLY in the transcript and tool evidence — never invent events."
+    ),
+    "metadata": (
+        "MODE — Extract Metadata. The clip is cut and the UI renders the "
+        "structured data itself. Reply with ONE short sentence naming the scene "
+        "and its source. No analysis, no step narration."
+    ),
+}
+
 _CLIP_WORDS = ("show", "find", "play", "clip", "scene", "moment", "the part", "where he",
                "where she", "where they")
 _VERIFY_WORDS = ("did they really", "did he really", "did she really", "what's the exact",
@@ -130,6 +149,8 @@ class _Result:
         self.citations: list[dict] = []
         self.kb_match: Optional[dict] = None     # confident KB candidate for this query
         self.kb_hint_ts: Optional[float] = None  # matched quote timestamp (full-source time)
+        self.match_score: Optional[float] = None  # locate_moment similarity score
+        self.cache_hit: bool = False              # source video served from cache
 
 
 def _run_tool(name: str, args: dict, session: Session, result: _Result,
@@ -177,6 +198,7 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
             return {"error": "no search results", "query": query}
         info = cached_download(found[0].id) if found[0].id else None
         if info:
+            result.cache_hit = True
             log.info("[%s] download cache hit for %s -> %s", qid, found[0].id, info.local_path)
         else:
             info = _timed("download", download, found[0].webpage_url)
@@ -224,6 +246,7 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
         result.quote = moment.quote
         result.dominant_emotion = moment.dominant_emotion
         result.timestamp = moment.start
+        result.match_score = getattr(moment, "score", None)
         log.info("[%s] locate_moment searched transcript of %r (%s) -> chose [%.2f-%.2f]",
                  qid, session.video.title, session.video.path, moment.start, moment.end)
         return moment.to_dict()
@@ -301,8 +324,13 @@ _STEP_LABELS = {
 }
 
 
-def run(question: str, session_id: str = "default") -> Iterator[dict]:
-    """Yield events: status / text / tool / clip / done. The core interaction."""
+def run(question: str, session_id: str = "default", mode: str = "find") -> Iterator[dict]:
+    """Yield events: status / text / tool / clip / done. The core interaction.
+
+    `mode` (find|analyze|metadata) only appends a final-answer instruction
+    AFTER the clip is located/cut — retrieval is identical in every mode."""
+    if mode not in ("find", "analyze", "metadata"):
+        mode = "find"
     qid = uuid.uuid4().hex[:8]
     t_start = time.perf_counter()
     timings: dict[str, float] = {}
@@ -352,6 +380,7 @@ def run(question: str, session_id: str = "default") -> Iterator[dict]:
     nudges = 0
     final_text = ""
     clip_emitted = False
+    mode_nudged = False
 
     for _turn in range(9):
         try:
@@ -425,8 +454,11 @@ def run(question: str, session_id: str = "default") -> Iterator[dict]:
                                          {"start": out["start"], "end": out["end"]},
                                          session, result, qid, timings)
                     out = {**out, "clip": clip_out,
-                           "note": "clip already cut — write the final 2-4 sentence "
-                                   "answer now; do NOT call make_clip"}
+                           "note": ("clip already cut — follow the MODE instruction in "
+                                    "the next message; do NOT call make_clip"
+                                    if mode != "find" else
+                                    "clip already cut — write the final 2-4 sentence "
+                                    "answer now; do NOT call make_clip")}
                 except Exception as exc:
                     log.exception("[%s] auto make_clip failed", qid)
 
@@ -435,6 +467,12 @@ def run(question: str, session_id: str = "default") -> Iterator[dict]:
                 yield {"type": "clip", "clip": result.clip}
             messages.append({"role": "tool", "tool_call_id": tid, "name": name,
                              "content": json.dumps(out)[:4000]})
+
+        # Mode instruction: appended once, only AFTER the clip exists, so the
+        # retrieval path stays identical across modes (per-query isolation).
+        if mode != "find" and result.clip and not mode_nudged:
+            mode_nudged = True
+            messages.append({"role": "user", "content": MODE_INSTRUCTIONS[mode]})
 
     # If we ran out of turns on a clip request without a clip, give an honest one-liner
     # instead of leaving the answer blank.
@@ -471,7 +509,13 @@ def run(question: str, session_id: str = "default") -> Iterator[dict]:
         "verification": result.verification,
         "citations": citations,
         "video": session.video.summary() if session.video else None,
+        "cache_hit": result.cache_hit,
     }
+    if mode != "find":
+        # additive, mode-only fields; the default payload stays byte-identical
+        payload["mode"] = mode
+        payload["kb_confidence"] = (result.kb_match or {}).get("confidence")
+        payload["match_score"] = result.match_score
     yield {"type": "done", "payload": payload}
 
     # ── preference engine: record + predict (after done, so the answer is

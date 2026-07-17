@@ -291,18 +291,96 @@
     font-family: "Fraunces", Georgia, serif;
     font-size: clamp(32px, 6.5vw, 46px); font-weight: 300;
     letter-spacing: -.01em; line-height: 1.15; margin: 0 0 14px;
+    transition: opacity .28s ease;
   }
+  .hero h1.swapping { opacity: 0; }
   .hero h1 em { font-style: italic; }
   .hero p { color: var(--dim); font-size: 14.5px; max-width: 420px; margin: 0 0 32px; }
   .examples { display: flex; flex-wrap: wrap; gap: 8px; }
   .examples button {
     background: none; border: 1px solid var(--line-2); border-radius: 999px;
     color: var(--dim); font: 13px/1.4 "Inter", sans-serif; padding: 9px 16px;
-    cursor: pointer; transition: color .2s, border-color .2s; text-align: left;
+    cursor: pointer; text-align: left;
+    transition: color .2s, border-color .2s, transform .2s, background .2s;
   }
-  .examples button:hover { color: var(--fg); border-color: var(--dim); }
+  .examples button:hover {
+    color: var(--fg); border-color: var(--dim);
+    background: var(--panel); transform: translateY(-1px);
+  }
 
-  .msg { padding: 36px 0; border-top: 1px solid var(--line); animation: rise .45s ease both; }
+  /* ── recent quests row ──────────────────── */
+  .recent { margin-top: 30px; }
+  .recent .label { display: block; margin-bottom: 10px; }
+  .recent .label .r-clear {
+    background: none; border: 0; cursor: pointer; padding: 0; margin-left: 10px;
+    font: inherit; letter-spacing: inherit; text-transform: inherit;
+    color: var(--dim); text-decoration: underline dotted;
+  }
+  .recent .label .r-clear:hover { color: var(--warn); }
+  .recent .r-x {
+    margin-left: 8px; color: var(--dim); font-style: normal;
+    transition: color .15s;
+  }
+  .recent .r-x:hover { color: var(--warn); }
+
+  /* ── featured scenes rail ───────────────── */
+  .featured { margin-top: 36px; opacity: .75; transition: opacity .35s ease; }
+  .featured:hover, .featured:focus-within, .featured.lit { opacity: 1; }
+  .featured .label { display: block; margin-bottom: 12px; }
+  .f-rail {
+    display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 12px;
+    scrollbar-width: none; -ms-overflow-style: none;   /* no bars: Firefox/old Edge */
+  }
+  .f-rail::-webkit-scrollbar { display: none; }        /* no bars: Chrome/Safari */
+  .f-card {
+    flex: none; width: 190px; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 0 0 11px; cursor: pointer; text-align: left; color: var(--fg);
+    font: inherit;
+    transition: transform .25s ease, border-color .2s, box-shadow .25s ease;
+  }
+  .f-card:hover { transform: scale(1.05); border-color: var(--line-2); box-shadow: var(--shadow); }
+  .f-card:focus-visible { border-radius: 14px; }
+  .f-media { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+  .f-card video, .fm-card video {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    margin: 0; border: 0; border-radius: 0; box-shadow: none;
+  }
+  .f-play {
+    position: absolute; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    color: var(--panel); font-size: 20px; text-shadow: 0 1px 6px rgba(0, 0, 0, .55);
+  }
+  @media (prefers-reduced-motion: reduce) { .f-play { display: flex; } }
+  .f-name {
+    display: block; font-family: "Fraunces", Georgia, serif;
+    font-size: 15px; padding: 10px 13px 0;
+  }
+  .f-hook { display: block; font-size: 11.5px; color: var(--dim); padding: 2px 13px 0; }
+
+  /* featured preview overlay */
+  .fmodal {
+    position: fixed; inset: 0; z-index: 60;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .fmodal[hidden] { display: none; }
+  .fm-back {
+    position: absolute; inset: 0; background: rgba(20, 16, 10, .28);
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  }
+  .fm-card {
+    position: relative; width: min(460px, 100%);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); padding: 14px; animation: rise .3s ease both;
+  }
+  .fm-card .f-media { border-radius: 12px; overflow: hidden; }
+  .fm-title {
+    font-family: "Fraunces", Georgia, serif; font-size: 20px; margin-top: 14px;
+  }
+  .fm-hook { font-size: 13px; color: var(--dim); margin-top: 3px; }
+  .fm-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+  .msg { padding: 36px 0; border-top: 1px solid var(--line); animation: rise .25s ease both; }
   .msg:first-child { border-top: 0; }
   .q {
     font-family: "Fraunces", Georgia, serif;
@@ -314,12 +392,21 @@
     font-size: 10.5px; font-weight: 600; letter-spacing: .14em;
     text-transform: uppercase; color: var(--dim);
   }
-  .steps { margin: 14px 0 4px; min-height: 16px; }
+  .steps { margin: 14px 0 4px; min-height: 16px; display: flex; flex-wrap: wrap; align-items: center; }
+  .steps .reel {
+    width: 14px; height: 14px; margin-right: 9px; flex: none;
+    color: var(--link); animation: spin 1.6s linear infinite;
+  }
+  .steps.settled .reel { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .steps span { margin-right: 4px; }
-  .steps span:not(:first-child)::before { content: "·  "; letter-spacing: 0; }
-  .steps span:last-child { animation: pulse 1.4s ease-in-out infinite; }
-  .steps.settled span:last-child { animation: none; }
+  .steps span:not(:first-of-type)::before { content: "·  "; letter-spacing: 0; }
+  .steps span { color: var(--dim); opacity: .55; }         /* passed stages */
+  .steps span:last-of-type { opacity: 1; animation: pulse 1.4s ease-in-out infinite; }
+  .steps.settled span { opacity: .55; animation: none; }
   @keyframes pulse { 50% { opacity: .35; } }
+
+  .t-badge b { color: var(--link); font-weight: 500; }
 
   .answer { margin-top: 12px; font-size: 15.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .answer:empty { margin: 0; }
@@ -374,23 +461,43 @@
     background: var(--panel-t); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
     border: 1px solid var(--line-2); border-radius: 999px;
     padding: 6px 6px 6px 22px; box-shadow: var(--shadow);
-    transition: border-color .2s;
+    transition: border-color .25s ease, box-shadow .25s ease;
   }
-  .bar:focus-within { border-color: var(--dim); }
+  .bar:focus-within {
+    border-color: var(--link);
+    box-shadow: 0 0 0 1px var(--link),
+                0 4px 22px color-mix(in srgb, var(--link) 24%, transparent),
+                var(--shadow);
+  }
+
+  /* hero placement: the input floats in the focal zone under the headline */
+  .dock.in-hero {
+    position: relative; padding: 0; margin: 30px 0 26px;
+    background: none; pointer-events: auto;
+  }
+  .dock.in-hero .bar {
+    max-width: 560px; margin: 0;
+    padding: 8px 8px 8px 26px;
+    box-shadow: var(--shadow), 0 2px 8px rgba(0, 0, 0, .06);
+  }
+  .dock.in-hero .bar input { font-size: 18px; padding: 13px 0; }
+  .dock.in-hero .bar #send { width: 46px; height: 46px; }
+  .bar input::placeholder { transition: opacity .35s ease; }
+  .bar input.ph-hide::placeholder { opacity: 0; }
   .bar input {
     flex: 1; min-width: 0; background: none; border: 0; outline: none;
     color: var(--fg); font: 16px "Inter", sans-serif; padding: 10px 0;
   }
   .bar input::placeholder { color: var(--dim); opacity: .75; }
-  .bar button {
+  .bar #send {
     flex: none; width: 40px; height: 40px; border-radius: 50%;
     background: var(--fg); color: var(--bg); border: 0; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: opacity .2s, transform .2s;
   }
-  .bar button:hover:not(:disabled) { transform: translateY(-1px); }
-  .bar button:disabled { opacity: .35; cursor: default; }
-  .bar button svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .bar #send:hover:not(:disabled) { transform: translateY(-1px); }
+  .bar #send:disabled { opacity: .35; cursor: default; }
+  .bar #send svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
 
   /* ── focus & touch polish ───────────────── */
   body { -webkit-tap-highlight-color: transparent; }
@@ -399,6 +506,43 @@
   }
   .examples button:focus-visible, .btn:focus-visible, .bar button:focus-visible,
   .ex-block:focus-visible { border-radius: 999px; }
+
+  /* ── modes pill + popover ───────────────── */
+  .mode-pill {
+    flex: none; background: none; border: 1px solid var(--line-2); border-radius: 999px;
+    color: var(--dim); font: 12.5px "Inter", sans-serif; padding: 7px 13px;
+    cursor: pointer; white-space: nowrap;
+    transition: color .2s, border-color .2s, background .2s;
+  }
+  .mode-pill:hover { color: var(--fg); border-color: var(--dim); background: var(--panel); }
+  .mode-pill.active { color: var(--fg); border-color: var(--dim); }
+  .mode-pill .x { margin-left: 7px; color: var(--dim); }
+  .mode-pill .x:hover { color: var(--warn); }
+  .mode-pop {
+    position: absolute; z-index: 45; left: 10px; bottom: calc(100% + 10px);
+    pointer-events: auto;
+    width: min(330px, calc(100vw - 40px));
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 6px; animation: rise .25s ease both;
+  }
+  .dock.in-hero .mode-pop { bottom: auto; top: calc(100% + 10px); }
+  .mode-pop[hidden] { display: none; }
+  .mode-opt {
+    display: flex; gap: 12px; align-items: flex-start; width: 100%;
+    background: none; border: 0; border-radius: 10px; padding: 10px 12px;
+    cursor: pointer; text-align: left; color: var(--fg);
+    font: 13.5px/1.45 "Inter", sans-serif; transition: background .15s;
+  }
+  .mode-opt:hover, .mode-opt:focus-visible { background: var(--bg); outline: none; }
+  .mode-opt i {
+    flex: none; width: 14px; height: 14px; margin-top: 3px; position: relative;
+    border: 1px solid var(--line-2); border-radius: 50%; font-style: normal;
+  }
+  .mode-opt[aria-checked="true"] i::after {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%;
+    background: var(--link);
+  }
+  .mode-opt small { display: block; color: var(--dim); font-size: 11.5px; margin-top: 2px; }
 
   /* ── responsive ─────────────────────────── */
   @media (min-width: 900px) {
@@ -667,8 +811,31 @@
 
 </main>
 
+<!-- featured-scene preview overlay -->
+<div class="fmodal" id="fmodal" hidden>
+  <div class="fm-back" id="fmBack"></div>
+  <div class="fm-card" role="dialog" aria-modal="true" aria-labelledby="fmTitle">
+    <div class="f-media"><video id="fmVideo" muted loop playsinline></video></div>
+    <div class="fm-title" id="fmTitle"></div>
+    <div class="fm-hook" id="fmHook"></div>
+    <div class="fm-actions"><button class="btn" id="fmGo">Get this scene</button></div>
+  </div>
+</div>
+
 <form class="dock" id="f">
+  <div class="mode-pop" id="modePop" hidden role="radiogroup" aria-label="Query modes">
+    <button type="button" class="mode-opt" role="radio" data-mode="find" aria-checked="true">
+      <i></i><span>Find Scene<small>Locate the moment and cut the clip — the default.</small></span>
+    </button>
+    <button type="button" class="mode-opt" role="radio" data-mode="analyze" aria-checked="false">
+      <i></i><span>Analyze Context<small>Same search, plus what leads in, the emotional read, and why the moment matters.</small></span>
+    </button>
+    <button type="button" class="mode-opt" role="radio" data-mode="metadata" aria-checked="false">
+      <i></i><span>Extract Metadata<small>The structured read-out: source, timestamps, quote, emotion, confidence.</small></span>
+    </button>
+  </div>
   <div class="bar">
+    <button type="button" class="mode-pill" id="modeBtn" aria-haspopup="true" aria-expanded="false">+ Modes</button>
     <input id="q" autocomplete="off" placeholder="Describe a scene…" />
     <button id="send" type="submit" aria-label="Ask">
       <svg viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
@@ -681,6 +848,190 @@ const thread = document.getElementById('thread');
 const form = document.getElementById('f');
 const input = document.getElementById('q');
 const send = document.getElementById('send');
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ── hero input: cycling placeholder examples (ONE editable constant) ──
+// Every string is asserted against the content filter at backend startup.
+const PLACEHOLDER_QUERIES = [
+  "Find the moment where Cooper sees his kids again…",
+  "Explain the symbolism in the diner scene…",
+  "Show me the scene where she says 'you look lonely'…",
+  "What happens right after the rooftop fight in…",
+];
+let phTimer = null;
+let phIndex = 0;
+input.placeholder = PLACEHOLDER_QUERIES[0];
+function stopPlaceholderCycle() {           // permanent: focus or typing
+  if (phTimer) { clearInterval(phTimer); phTimer = null; }
+  input.classList.remove('ph-hide');
+}
+if (!REDUCED_MOTION) {
+  phTimer = setInterval(() => {
+    input.classList.add('ph-hide');         // fade out…
+    setTimeout(() => {
+      phIndex = (phIndex + 1) % PLACEHOLDER_QUERIES.length;
+      input.placeholder = PLACEHOLDER_QUERIES[phIndex];
+      input.classList.remove('ph-hide');    // …swap, fade back in
+    }, 360);
+  }, 4000);
+}
+input.addEventListener('focus', stopPlaceholderCycle, { once: true });
+input.addEventListener('input', stopPlaceholderCycle, { once: true });
+
+// ── modes: per-query prompt/render variation; never touches retrieval ──
+const MODE_LABELS = { find: 'Find Scene', analyze: 'Analyze', metadata: 'Metadata' };
+const modeBtn = document.getElementById('modeBtn');
+const modePop = document.getElementById('modePop');
+let currentMode = 'find';
+
+function renderModePill() {
+  modeBtn.textContent = currentMode === 'find' ? '+ Modes' : MODE_LABELS[currentMode];
+  modeBtn.classList.toggle('active', currentMode !== 'find');
+  if (currentMode !== 'find') {
+    const x = document.createElement('span');
+    x.className = 'x'; x.textContent = '✕'; x.title = 'Back to Find Scene';
+    modeBtn.appendChild(x);
+  }
+}
+function openModePop(open) {
+  modePop.hidden = !open;
+  modeBtn.setAttribute('aria-expanded', String(open));
+  if (open) (modePop.querySelector('[aria-checked="true"]') || modePop.firstElementChild).focus();
+}
+modeBtn.addEventListener('click', (e) => {
+  if (e.target.classList && e.target.classList.contains('x')) {   // dismiss chip
+    currentMode = 'find';
+    modePop.querySelectorAll('.mode-opt').forEach((b) =>
+      b.setAttribute('aria-checked', String(b.dataset.mode === 'find')));
+    renderModePill();
+    return;
+  }
+  openModePop(modePop.hidden);
+});
+modePop.querySelectorAll('.mode-opt').forEach((o) =>
+  o.addEventListener('click', () => {
+    currentMode = o.dataset.mode;
+    modePop.querySelectorAll('.mode-opt').forEach((b) =>
+      b.setAttribute('aria-checked', String(b === o)));
+    renderModePill();
+    openModePop(false);
+    input.focus();
+  }));
+document.addEventListener('click', (e) => {
+  if (!modePop.hidden && !modePop.contains(e.target) && !modeBtn.contains(e.target)) openModePop(false);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openModePop(false); });
+
+// ── featured scenes rail (real cache-derived data; server pre-filters) ──
+const fmodal = document.getElementById('fmodal');
+const fmVideo = document.getElementById('fmVideo');
+const fmTitle = document.getElementById('fmTitle');
+const fmHook = document.getElementById('fmHook');
+const fmGo = document.getElementById('fmGo');
+let fmQuery = '';
+
+function openFeatured(it) {
+  fmQuery = it.query;
+  fmVideo.poster = it.thumb_url; fmVideo.src = it.loop_url;
+  fmTitle.textContent = it.title; fmHook.textContent = it.hook;
+  fmodal.hidden = false;
+  if (!REDUCED_MOTION) fmVideo.play().catch(() => {});
+  fmGo.focus();
+}
+function closeFeatured() {
+  if (fmodal.hidden) return;
+  fmodal.hidden = true; fmVideo.pause(); fmVideo.removeAttribute('src'); fmVideo.load();
+}
+document.getElementById('fmBack').addEventListener('click', closeFeatured);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFeatured(); });
+fmGo.addEventListener('click', () => {
+  const q = fmQuery;
+  closeFeatured();
+  input.value = q;   // normal fresh query through the standard loop
+  ask();
+});
+
+async function loadFeatured() {
+  const hero = document.getElementById('hero');
+  if (!hero) return;
+  let items = [];
+  try { items = (await (await fetch('/api/featured')).json()).items || []; }
+  catch { return; }
+  if (!items.length) return;   // empty manifest: the rail simply doesn't render
+  const sec = document.createElement('div'); sec.className = 'featured';
+  const h = document.createElement('span'); h.className = 'label';
+  h.textContent = 'Featured scenes';
+  const rail = document.createElement('div'); rail.className = 'f-rail';
+  const makeCard = (it, dup) => {
+    const card = document.createElement('button');
+    card.type = 'button'; card.className = 'f-card'; card.title = it.query;
+    if (dup) card.setAttribute('aria-hidden', 'true'), card.tabIndex = -1;
+    const media = document.createElement('div'); media.className = 'f-media';
+    const v = document.createElement('video');
+    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
+    v.poster = it.thumb_url; v.src = it.loop_url;
+    const glyph = document.createElement('span'); glyph.className = 'f-play';
+    glyph.textContent = '▶';
+    media.append(v, glyph);
+    const name = document.createElement('span'); name.className = 'f-name';
+    name.textContent = it.title;
+    const hook = document.createElement('span'); hook.className = 'f-hook';
+    hook.textContent = it.hook;
+    card.append(media, name, hook);
+    if (!REDUCED_MOTION) {
+      card.addEventListener('mouseenter', () => v.play().catch(() => {}));
+      card.addEventListener('mouseleave', () => { v.pause(); v.currentTime = 0; });
+    }
+    card.addEventListener('click', () => openFeatured(it));
+    rail.appendChild(card);
+  };
+  items.forEach((it) => makeCard(it, false));
+  sec.append(h, rail);
+
+  // auto-scrolling carousel: the card set is doubled so the wrap at the
+  // halfway point is seamless; pauses while the user hovers, touches, or
+  // focuses the rail (so hover previews stay still); off under reduced-motion
+  if (!REDUCED_MOTION) {
+    items.forEach((it) => makeCard(it, true));
+    let paused = false;
+    ['pointerenter', 'pointerdown', 'focusin', 'touchstart']
+      .forEach((ev) => rail.addEventListener(ev, () => { paused = true; }, { passive: true }));
+    ['pointerleave', 'focusout']
+      .forEach((ev) => rail.addEventListener(ev, () => { paused = false; }));
+    const AUTO_SCROLL_PX_PER_FRAME = 0.5;
+    let acc = 0;
+    const step = () => {
+      if (!rail.isConnected) return;               // hero gone: stop the loop
+      if (!paused && rail.scrollWidth > rail.clientWidth) {
+        acc += AUTO_SCROLL_PX_PER_FRAME;           // accumulate sub-pixel steps
+        if (acc >= 1) { rail.scrollLeft += Math.floor(acc); acc -= Math.floor(acc); }
+        const half = rail.scrollWidth / 2;
+        if (rail.scrollLeft >= half) rail.scrollLeft -= half;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  hero.appendChild(sec);
+  new IntersectionObserver(
+    (es) => es.forEach((e) => sec.classList.toggle('lit', e.isIntersecting)),
+    { threshold: 0.9 },
+  ).observe(sec);
+}
+loadFeatured();
+
+// ── hero placement: the dock lives under the headline until the first ask ──
+function placeDock() {
+  const hero = document.getElementById('hero');
+  if (hero) {
+    form.classList.add('in-hero');
+    hero.insertBefore(form, hero.querySelector('.examples'));
+  } else if (form.classList.contains('in-hero')) {
+    form.classList.remove('in-hero');
+    document.body.appendChild(form);
+  }
+}
+
 const sid = 'web-' + Math.random().toString(36).slice(2, 9);
 document.getElementById('sessionTag').textContent = 'session ' + sid;
 
@@ -699,6 +1050,80 @@ themeSwitch.addEventListener('change', () => {
   root.dataset.theme = themeSwitch.checked ? 'dark' : 'light';
   persist.set('ss-theme', root.dataset.theme);
 });
+
+// ── personalization: returning-user greeting + recent quests (all local) ──
+const RECENT_KEY = 'ss_recent';
+const VISITS_KEY = 'ss_visits';
+
+(function greetReturningUser() {
+  const visits = parseInt(localStorage.getItem(VISITS_KEY) || '0', 10);
+  persist.set(VISITS_KEY, String(visits + 1));
+  if (!visits) return;                       // first visit: headline untouched
+  const h1 = document.querySelector('#page-home .hero h1');
+  if (!h1) return;
+  const swap = () => { h1.innerHTML = 'Welcome back. Where should we <em>look today</em>?'; };
+  if (REDUCED_MOTION) { swap(); return; }    // instant, no crossfade
+  h1.classList.add('swapping');
+  setTimeout(() => { swap(); h1.classList.remove('swapping'); }, 280);
+})();
+
+function getRecent() {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); }
+  catch { return []; }
+}
+function recordRecent(query, payload) {
+  if (!payload || payload.filtered || !payload.clip_url) return;   // successes only
+  const list = getRecent().filter((r) => r.query !== query);
+  list.unshift({ query, title: payload.source || '', ts: Date.now() });
+  persist.set(RECENT_KEY, JSON.stringify(list.slice(0, 5)));
+}
+async function renderRecent() {
+  const hero = document.getElementById('hero');
+  if (!hero) return;
+  const old = hero.querySelector('.recent');
+  if (old) old.remove();
+  const items = getRecent().slice(0, 3);
+  if (!items.length) return;
+  // re-check against the CURRENT blocklist (it may have changed since save);
+  // if the check can't run, render nothing rather than unchecked text
+  let blocked;
+  try {
+    const r = await fetch('/api/filter/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: items.map((i) => i.title + ' ' + i.query) }),
+    });
+    blocked = (await r.json()).blocked;
+  } catch { return; }
+  const ok = items.filter((_, i) => !blocked[i]);
+  if (!ok.length) return;
+  const sec = document.createElement('div'); sec.className = 'recent';
+  const lab = document.createElement('span'); lab.className = 'label';
+  lab.textContent = 'Recent';
+  const clear = document.createElement('button');
+  clear.type = 'button'; clear.className = 'r-clear'; clear.textContent = 'clear';
+  clear.addEventListener('click', () => { persist.del(RECENT_KEY); renderRecent(); });
+  lab.appendChild(clear);
+  const row = document.createElement('div'); row.className = 'examples';
+  ok.forEach((it) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.title = it.query;
+    b.textContent = it.title || it.query.slice(0, 46);
+    const x = document.createElement('span'); x.className = 'r-x'; x.textContent = '✕';
+    x.title = 'Remove';
+    x.addEventListener('click', (e) => {
+      e.stopPropagation();
+      persist.set(RECENT_KEY, JSON.stringify(getRecent().filter((r) => r.query !== it.query)));
+      renderRecent();
+    });
+    b.appendChild(x);
+    b.addEventListener('click', () => { input.value = it.query; ask(); });   // fresh query
+    row.appendChild(b);
+  });
+  sec.append(lab, row);
+  const featured = hero.querySelector('.featured');
+  if (featured) hero.insertBefore(sec, featured); else hero.appendChild(sec);
+}
+renderRecent();
 
 // ── router: each section is its own page ───
 const PAGES = ['home', 'about', 'guide', 'settings'];
@@ -819,18 +1244,30 @@ async function ask() {
   if (!q || send.disabled) return;
   input.value = ''; send.disabled = true;
   const h = document.getElementById('hero');
-  if (h) h.remove();
+  if (h) {
+    document.body.appendChild(form);        // back to the fixed bottom dock
+    form.classList.remove('in-hero');
+    h.remove();
+  }
 
+  const t0 = performance.now();              // timing badge instrumentation
   const am = document.createElement('div'); am.className = 'msg';
   const qEl = document.createElement('div'); qEl.className = 'q'; qEl.textContent = q;
   const steps = document.createElement('div'); steps.className = 'steps label';
+  steps.innerHTML =
+    '<svg class="reel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">'
+    + '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.6"/>'
+    + '<circle cx="12" cy="7" r="1.9"/><circle cx="17" cy="12" r="1.9"/>'
+    + '<circle cx="12" cy="17" r="1.9"/><circle cx="7" cy="12" r="1.9"/></svg>';
   const text = document.createElement('div'); text.className = 'answer streaming';
   const extra = document.createElement('div');
   am.append(qEl, steps, text, extra); thread.appendChild(am);
   window.scrollTo(0, document.body.scrollHeight);
 
+  const mode = currentMode;   // captured per query; per-query metadata only
   try {
-    const url = '/api/chat?session_id=' + sid + '&question=' + encodeURIComponent(q);
+    const url = '/api/chat?session_id=' + sid + '&question=' + encodeURIComponent(q)
+      + (mode !== 'find' ? '&mode=' + mode : '');
     const res = await fetch(url);
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -844,7 +1281,11 @@ async function ask() {
         const line = p.replace(/^data: /, '').trim();
         if (!line) continue;
         let ev; try { ev = JSON.parse(line); } catch { continue; }
-        handle(ev, steps, text, extra);
+        if (ev.type === 'done') {
+          ev.payload.elapsed_s = (performance.now() - t0) / 1000;
+          recordRecent(q, ev.payload);
+        }
+        handle(ev, steps, text, extra, mode);
       }
       window.scrollTo(0, document.body.scrollHeight);
     }
@@ -859,11 +1300,12 @@ async function ask() {
   input.focus();
 }
 
-function handle(ev, steps, text, extra) {
+function handle(ev, steps, text, extra, mode) {
   if (ev.type === 'status') {
     const s = document.createElement('span'); s.textContent = ev.step;
     steps.appendChild(s);
   } else if (ev.type === 'text') {
+    if (mode === 'metadata') return;   // the strip is the answer in this mode
     text.textContent += ev.delta;
   } else if (ev.type === 'clip') {
     const v = document.createElement('video');
@@ -892,6 +1334,10 @@ function handle(ev, steps, text, extra) {
   }
 }
 
+// Timing badge threshold (seconds): under it we show "Scene found in X.Xs";
+// at/over it no timing is shown — never advertise slow runs. One constant.
+const TIMING_BADGE_MAX_S = 8;
+
 function renderMeta(p, extra) {
   const meta = document.createElement('div'); meta.className = 'meta';
   const chip = (label, val) => { if (!val && val !== 0) return;
@@ -899,10 +1345,30 @@ function renderMeta(p, extra) {
     c.append(label + ' ');
     const b = document.createElement('b'); b.textContent = String(val); c.append(b);
     meta.appendChild(c); };
+  if (p.clip_url && !p.filtered) {           // conditional timing badge
+    const fast = p.elapsed_s != null && p.elapsed_s < TIMING_BADGE_MAX_S;
+    const parts = [];
+    if (fast) parts.push('Scene found in ' + p.elapsed_s.toFixed(1) + 's');
+    if (p.cache_hit) parts.push('⚡ cached');
+    if (parts.length) {
+      const c = document.createElement('span'); c.className = 'chip t-badge';
+      const b = document.createElement('b'); b.textContent = parts.join(' · ');
+      c.appendChild(b); meta.appendChild(c);
+    }
+  }
   chip('Source', p.source);
   if (p.quote) chip('Line', '“' + p.quote.slice(0, 80) + '”');
   chip('Emotion', p.dominant_emotion);
   if (p.timestamp != null) chip('At', p.timestamp.toFixed(1) + 's');
+  if (p.mode === 'metadata') {          // Extract Metadata: the expanded strip
+    if (p.clip) {
+      chip('Window', p.clip.start.toFixed(1) + 's – ' + p.clip.end.toFixed(1) + 's');
+      chip('Duration', p.clip.duration.toFixed(1) + 's');
+    }
+    if (p.kb_confidence != null) chip('KB confidence', Math.round(p.kb_confidence * 100) + '%');
+    if (p.match_score != null) chip('Match', Math.round(p.match_score * 100) + '%');
+    if (p.video && p.video.title) chip('Video', p.video.title);
+  }
   if (meta.children.length) extra.appendChild(meta);
 
   if (p.citations && p.citations.length) {
@@ -919,6 +1385,7 @@ function renderMeta(p, extra) {
   }
 }
 
+placeDock();
 route();
 </script>
 </body>

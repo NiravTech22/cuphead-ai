@@ -16,12 +16,12 @@ import json
 import shutil
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import assistant, config
+from . import assistant, config, featured
 from . import filter as content_filter
 from .device import detect
 from .llm import local_model, provider
@@ -44,6 +44,11 @@ app.add_middleware(
 # Serve exported clips so the frontend can embed them inline.
 app.mount("/clips", StaticFiles(directory=str(config.CLIPS_DIR)), name="clips")
 
+# Featured-scene assets (thumbnails + preview loops), generated from cache by
+# `python -m app.generate_featured_assets`.
+featured.FEATURED_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/featured", StaticFiles(directory=str(featured.FEATURED_DIR)), name="featured")
+
 FRONTEND_DIST = config.BACKEND_DIR.parent / "frontend" / "dist"
 STATIC_HARNESS = Path(__file__).resolve().parent / "static"
 
@@ -64,12 +69,15 @@ def _sse(event: dict) -> str:
 
 
 @app.get("/api/chat")
-def chat(question: str, session_id: str = "default") -> StreamingResponse:
-    """Stream the assistant's answer as Server-Sent Events. Runs in a threadpool."""
+def chat(question: str, session_id: str = "default", mode: str = "find") -> StreamingResponse:
+    """Stream the assistant's answer as Server-Sent Events. Runs in a threadpool.
+
+    `mode` is per-query render/prompt metadata (find|analyze|metadata) — it never
+    enters the retrieval context (see assistant.run)."""
 
     def gen():
         try:
-            for event in assistant.run(question, session_id):
+            for event in assistant.run(question, session_id, mode=mode):
                 yield _sse(event)
         except Exception as exc:  # never crash the stream
             log.exception("chat stream error")
@@ -143,6 +151,27 @@ def build_emotion(session_id: str, fps: float = config.EMOTION_FPS) -> dict:
     return {"ok": True, **tl}
 
 
+@app.get("/api/featured")
+def get_featured() -> dict:
+    """Curated cache-derived scenes for the hero rail (already filter-checked)."""
+    return {"items": featured.manifest()}
+
+
+@app.post("/api/filter/check")
+def filter_check(payload: dict = Body(...)) -> dict:
+    """Batch content-filter check for client-side surfaces (e.g. Recent Quests
+    stored in localStorage: the blocklist may have changed since they were
+    saved). Returns blocked flags only — categories are logged server-side."""
+    texts = payload.get("texts") or []
+    blocked = []
+    for t in texts[:50]:
+        cat = content_filter.check(t if isinstance(t, str) else "")
+        if cat:
+            log.info("filter/check blocked a client string (category=%s)", cat)
+        blocked.append(bool(cat))
+    return {"blocked": blocked}
+
+
 @app.get("/api/settings")
 def get_settings() -> dict:
     return {"filter_strict": content_filter.is_strict()}
@@ -164,6 +193,28 @@ def index() -> FileResponse:
 # Serve the built React app if present.
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+
+@app.on_event("startup")
+def _assert_placeholders_clean() -> None:
+    """Build-time guard: the frontend's cycling placeholder examples (the
+    PLACEHOLDER_QUERIES constant in static/index.html) must pass the content
+    filter. Fails startup loudly rather than shipping a blocked example."""
+    import re
+
+    try:
+        html = (STATIC_HARNESS / "index.html").read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return
+    m = re.search(r"PLACEHOLDER_QUERIES\s*=\s*\[(.*?)\];", html, re.S)
+    if not m:
+        log.warning("placeholder assertion: PLACEHOLDER_QUERIES not found in static harness")
+        return
+    strings = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))
+    for s in strings:
+        cat = content_filter.check(s)
+        assert not cat, f"placeholder example fails content filter [{cat}]: {s!r}"
+    log.info("placeholder examples pass content filter (%d checked)", len(strings))
 
 
 @app.on_event("startup")
