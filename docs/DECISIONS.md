@@ -4,6 +4,51 @@ Dated, ADR-style. One short entry per non-obvious choice.
 
 ---
 
+## ADR-015 — 2026-07-17 — BTW scope enforced in code, not prompt
+
+**Context.** The aside channel must never trigger heavy work on a GPU
+already running the main pipeline — and prompts alone don't enforce
+anything against a 7B model's whims.
+
+**Decision.** `/api/btw` is a separate route whose implementation simply
+has no path to fetch/whisper/ffmpeg — it calls `llm.chat` (no tools,
+num_predict=300) and the CPU KB, nothing else. The model can only *ask*
+for the pipeline by returning needs_pipeline, which the UI converts into a
+user-approved queued MAIN query through the normal isolated flow. Aside
+context is capped at the job registry's one-liner (query + resolved title)
+plus the client's last 4 exchanges; both isolation directions hold because
+the aside is a stateless separate request that never writes into main
+retrieval messages.
+
+**Consequences.** A misbehaving model can at worst answer wrongly, never
+spin up video work. Factual-vs-action classification needed explicit
+prompt examples (the verify loop caught over-triggering).
+
+## ADR-014 — 2026-07-17 — Cancellation boundary and gate ownership
+
+**Context.** "Stop" must free CPU/GPU/disk, but a single in-flight Whisper
+forward pass or Ollama chunk cannot be interrupted mid-call, downloads are
+in-process yt-dlp (no child to kill), and Starlette never finalizes a sync
+SSE generator once the client disconnects.
+
+**Decision.** Cancellation is cooperative at dense checkpoints — before
+each LLM turn and tool stage, per whisper segment, per yt-dlp progress
+callback — so worst-case latency is one segment/chunk; subprocesses
+(ffmpeg) are registered and SIGTERM/SIGKILLed immediately regardless. The
+Ollama adapter streams internally so cancel can close the connection and
+end generation. Partial artifacts are registered as glob patterns and
+deleted by the reaper; creators unregister on success so caches only ever
+hold whole files. The single-pipeline gate is owned by the Job, released
+exactly once via job lifecycle — including from cancel(), because
+generator finalization is not guaranteed; overlap after a cancel is
+bounded to one checkpoint interval.
+
+**Consequences.** ffmpeg dies in ~0.2s, downloads abort within one
+progress tick, LLM within one chunk; a cancelled job can linger at most a
+few seconds of Whisper before its checkpoint fires, which the 4GB GPU
+tolerates. Tab-close relies on a sendBeacon cancel rather than server-side
+disconnect detection.
+
 ## ADR-013 — 2026-07-17 — Scene DNA renders server-side with Pillow
 
 **Context.** The share card needs the source video's key frame, real fonts,

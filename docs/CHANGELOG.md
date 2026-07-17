@@ -1,5 +1,97 @@
 # Scene Sense — Changelog
 
+## [2026-07-17] Interrupt suite Phase 3 — Interrupt-and-replace
+
+**What was built.** Submitting a new main query while one runs shows a
+one-line inline choice above the input — "Stop current search and run
+this?" [Replace] [Queue] — never a modal. The last choice is remembered in
+localStorage and rendered as the emphasized default. Replace = full
+Phase-1 cancel then run (the glass box logs "job X cancelled → job Y
+started"); Queue = run after via the existing drain. If the running query
+finishes while the choice is open, the bar auto-resolves and the pending
+query runs. Voice submissions and chip clicks route through the same flow.
+
+**Files.** `backend/app/static/index.html`.
+
+**How it was verified.** Three rapid-fire replacements (~2s apart):
+inline bar appeared each time with the remembered Replace default; final
+answer was the correct Dark Knight (2008) clip; the three superseded
+queries each carry a "Stopped — partial" chip; glass-box shows the
+job-transition lines. Stress: 5 interleaved cancel / BTW / replace cycles
+— VRAM 2992→2996 MiB (Δ+4, idle noise), ffmpeg process count 0→0, final
+result correct (Interstellar 2014), input responsive throughout. A stale
+choice-bar issue (query ending mid-decision) was caught by the loop and
+fixed with auto-resolution.
+
+## [2026-07-17] Interrupt suite Phase 2 — BTW side-channel
+
+**What was built.** While a main query runs, a "btw…" pill appears above
+the input; it opens a compact aside panel (distinct thread: left-rule
+bubbles, "aside" label, own small input). `POST /api/btw` is LLM + local
+knowledge base ONLY — by construction the route never imports fetch/
+whisper/ffmpeg; it logs `btw: llm-only route` per request. Context per
+call: last ≤4 side exchanges + one line about the current main job (query
+text + resolved title only, read from the job registry — no transcripts,
+no tool history); main-query retrieval never sees BTW content (separate
+HTTP request, separate messages). num_predict=300 so asides can't starve
+the main job's LLM turns; requests serialize at Ollama naturally. If the
+aside actually needs the pipeline, the model returns needs_pipeline and
+the UI offers [Queue it] [Never mind]; queued items run afterward as
+normal, clean-context main queries via the existing drain. Filter runs on
+aside input and output. The thread stays readable after the main result;
+the pill hides at idle.
+
+**Files.** `backend/app/main.py`, `backend/app/static/index.html`.
+
+**Key decisions.** ADR-015 (scope enforced in code, not prompt).
+
+**How it was verified.** During a running main query: "who directed The
+Dark Knight?" answered directly in 4.1s — before the main result — with
+"Christopher Nolan"; the main query still delivered the correct Dark
+Knight clip. "Show me the scene where Neo dodges bullets" produced the
+queue offer; queued, it ran after the main result as a fresh main query
+and delivered The Matrix (1999) clip. Log grep: every btw request logs
+the llm-only marker; all download/transcribe/ffmpeg lines carry main-job
+qids. Verify-loop catch: the 7B classifier initially flagged factual
+questions as needs_pipeline — fixed with explicit factual-vs-action
+prompt guidance and retested.
+
+## [2026-07-17] Interrupt suite Phase 1 — True cancellation
+
+**What was built.** `app/jobs.py`: every main query is a Job (id = qid)
+tracking status, spawned subprocesses, partial-temp patterns, and abort
+callbacks. `POST /api/cancel/{job_id}` marks cancelled, closes the in-flight
+Ollama stream (the ollama path now streams internally so dropping the
+connection ends generation), SIGTERMs registered children with SIGKILL
+after a 2s grace, then deletes registered partials. Checkpoints before
+every LLM turn and tool stage, inside the whisper segment loop, and in a
+yt-dlp progress hook; completed artifacts unregister their partial pattern
+so caches keep only whole files. One `pipeline_gate` enforces a single
+pipeline ever; the gate releases via the job lifecycle (also on cancel) —
+NOT generator finalization, which Starlette skips for abandoned sync
+streams. Frontend: Send morphs to a square Stop with an accent ring; click
+or Esc → optimistic freeze + cancel POST; "Stopped — partial" chip; input
+instantly ready; `pagehide` beacon cancels on tab close.
+
+**Files.** `backend/app/jobs.py` (new), `assistant.py`, `llm.py`,
+`downloader.py`, `transcriber.py`, `clipper.py`, `main.py`, `index.html`.
+
+**Key decisions.** ADR-014 (checkpoint boundary; gate release on cancel).
+
+**How it was verified (demonstrated, not asserted).** UI round: cancel
+mid-LLM → stopped chip, "cancelled by user" glass line, input ready; next
+job's log reads `prior job=aff13750(cancelled) — no state inherited`;
+unrelated follow-up returned the correct Breaking Bad clip in 25.1s.
+Deterministic round: cancelled a live 32MB Sintel download at 6% with
+`eRsGyueVLvQ.mp4.part` on disk → thread raised JobCancelled, partials
+deleted, zero leftover files; cancelled a live ffmpeg re-encode → process
+GONE from the process table in 0.2s, JobCancelled raised, no partial clip
+cached. Three real bugs were caught by the verify loop and fixed:
+JobCancelled swallowed by a broad `except Exception`; the pipeline gate
+never released when a client aborts its SSE stream (Starlette leaves sync
+generators unfinalized) — now released via cancel(); and `_current`
+hijacked by a gate-waiting job — now switched only at gate acquisition.
+
 ## [2026-07-17] To-the-Stars Phase 5 — Scene DNA card + demo script v2
 
 **What was built.** A "⬡ Scene DNA" button on every clip result generates a

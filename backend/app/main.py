@@ -249,10 +249,12 @@ def btw(payload: dict = Body(...)) -> dict:
 
     sys = ("You are Scene Sense's ASIDE channel — quick side answers while the "
            "main search runs. Answer from your knowledge and the context below "
-           "in under 100 words. You have NO tools and CANNOT fetch, clip, or "
-           "show anything. If the question actually requires the video pipeline "
-           "(show/play/clip/fetch a scene, 'the next scene'), reply ONLY with "
-           'JSON {"needs_pipeline": true}.'
+           "in under 100 words. FACTUAL questions (who directed X, which year, "
+           "who plays a role, plot questions, 'what is this movie about') you "
+           "ALWAYS answer directly in text — they never need the pipeline. "
+           "ONLY when the user asks to SHOW, PLAY, CLIP, or FETCH a scene — an "
+           "action that needs video processing — reply ONLY with JSON "
+           '{"needs_pipeline": true}.'
            + ("\n" + main_line if main_line else "")
            + ("\nLocal knowledge-base candidates:\n" + "\n".join(kb_lines)
               if kb_lines else ""))
