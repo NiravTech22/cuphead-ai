@@ -33,7 +33,7 @@ from .transcriber import transcribe
 
 log = get_logger(__name__)
 
-app = FastAPI(title="Scene Sense")
+app = FastAPI(title="Verbatim")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -165,7 +165,7 @@ def get_emotions(video_id: str, start: float = None, end: float = None) -> dict:
 
 @app.get("/api/featured")
 def get_featured() -> dict:
-    """Curated cache-derived scenes for the hero rail (already filter-checked)."""
+    """Curated cache-derived statements for the hero rail (already filter-checked)."""
     return {"items": featured.manifest()}
 
 
@@ -247,12 +247,12 @@ def btw(payload: dict = Body(...)) -> dict:
     except Exception:
         pass
 
-    sys = ("You are Scene Sense's ASIDE channel — quick side answers while the "
+    sys = ("You are Verbatim's ASIDE channel — quick side answers while the "
            "main search runs. Answer from your knowledge and the context below "
-           "in under 100 words. FACTUAL questions (who directed X, which year, "
-           "who plays a role, plot questions, 'what is this movie about') you "
+           "in under 100 words. FACTUAL questions (who said X, what date, "
+           "what event was this, background on a public figure) you "
            "ALWAYS answer directly in text — they never need the pipeline. "
-           "ONLY when the user asks to SHOW, PLAY, CLIP, or FETCH a scene — an "
+           "ONLY when the user asks to SHOW, PLAY, CLIP, or VERIFY a statement — an "
            "action that needs video processing — reply ONLY with JSON "
            '{"needs_pipeline": true}.'
            + ("\n" + main_line if main_line else "")
@@ -293,7 +293,7 @@ def filter_check(payload: dict = Body(...)) -> dict:
 
 @app.get("/api/dna/{clip_id}")
 def dna_card(clip_id: str, title: str = None):
-    """Scene DNA share card — 1200×630 PNG, download-only (no hosting)."""
+    """Clip DNA share card — 1200×630 PNG, download-only (no hosting)."""
     from fastapi.responses import Response
 
     from . import dna
@@ -303,7 +303,7 @@ def dna_card(clip_id: str, title: str = None):
         return Response(status_code=404)
     return Response(content=png, media_type="image/png",
                     headers={"Content-Disposition":
-                             f'attachment; filename="scene-dna-{clip_id}.png"'})
+                             f'attachment; filename="clip-dna-{clip_id}.png"'})
 
 
 @app.get("/api/settings")
@@ -370,7 +370,7 @@ def _warm_kb() -> None:
 def main() -> None:
     import uvicorn
 
-    log.info("starting Scene Sense on %s:%s", config.HOST, config.PORT)
+    log.info("starting Verbatim on %s:%s", config.HOST, config.PORT)
     uvicorn.run(app, host=config.HOST, port=config.PORT)
 
 

@@ -1,4 +1,4 @@
-# Scene Sense content filter — one term per line, case-insensitive,
+# Verbatim content filter — one term per line, case-insensitive,
 # word-boundary matched ("ass" will NOT trip on "assistant").
 # Edit freely; the file is re-read automatically when it changes.
 # Sections: [sexual] [slurs] [violence] are always active;

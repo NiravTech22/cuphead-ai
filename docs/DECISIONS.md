@@ -1,8 +1,33 @@
-# Scene Sense — Decision Records
+# Verbatim — Decision Records
 
 Dated, ADR-style. One short entry per non-obvious choice.
 
 ---
+
+## ADR-016 — 2026-08-14 — Pivot to quote verification; leave retrieval pipeline untouched
+
+**Context.** Scene Sense's differentiated engineering — provenance tags, a
+three-part confidence ledger, a verifier with a hard zero-fabrication rule —
+was built for a domain (movie/TV scene-finding) where a wrong-but-confident
+answer costs nothing. That machinery is the actual product for a domain
+where it does: verifying whether a public figure really said a claimed
+statement.
+
+**Decision.** Retarget the app (renamed Verbatim) at public figures'
+on-the-record statements, and change ONLY what the domain requires: system
+prompts and tool descriptions (`app/assistant.py`), the knowledge base
+content and its ingestion path (`app/knowledge/`), and UI copy
+(`app/static/index.html`). The retrieval pipeline itself — identify source →
+fetch/transcribe → locate moment → cut clip → verify quote — is
+content-agnostic by construction and needed no changes; this is treated as
+confirmation the original architecture was sound, not luck.
+
+**Consequences.** The Featured-statements rail lost its curated examples
+(they pointed at cached movie clips) and starts empty until re-populated
+with real statement clips. The movie knowledge base (TMDB-backed) was
+replaced with a small, manually curated, high-confidence seed set — quantity
+was traded for verifiable accuracy, since the app's own ethos is zero
+fabrication and a KB entry is itself a claim.
 
 ## ADR-015 — 2026-07-17 — BTW scope enforced in code, not prompt
 

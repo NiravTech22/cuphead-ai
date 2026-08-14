@@ -32,7 +32,7 @@ def detect() -> dict:
 
     # Whisper size: config/env override wins, else 'base' — fast and good enough
     # for moment location, and it leaves VRAM headroom for the local LLM.
-    whisper_model = os.getenv("SCENE_SENSE_WHISPER_MODEL", "") or "base"
+    whisper_model = os.getenv("VERBATIM_WHISPER_MODEL", "") or "base"
 
     profile = {
         "device": device,

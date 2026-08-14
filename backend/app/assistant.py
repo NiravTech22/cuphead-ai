@@ -1,16 +1,17 @@
 """assistant.py — the orchestrator of the core interaction (provider-agnostic).
 
-Given a user question about a movie/show/video, it runs a manual tool-use loop
-over the LLM adapter (`llm.chat`, default = local Ollama): identify the source ->
-fetch & transcribe the video (yt-dlp) -> locate the moment (moment_finder) ->
-cut the clip (clipper) -> and return a STRUCTURED response:
+Given a user question about a public figure's statement (speech, interview,
+press conference), it runs a manual tool-use loop over the LLM adapter
+(`llm.chat`, default = local Ollama): identify the source -> fetch & transcribe
+the video (yt-dlp) -> locate the moment (moment_finder) -> cut the clip
+(clipper) -> and return a STRUCTURED response:
 {explanation, clip_url, source, quote, dominant_emotion, timestamp, citations}.
 
 It yields SSE-style events (status / text / tool / clip / done). It HEDGES when
-it can't confidently find the moment and CITES sources. Graceful errors never
-crash the flow.
+it can't confidently verify the statement and CITES sources. Graceful errors
+never crash the flow.
 
-    python -m app.assistant "show me the scene where 'why so serious' is said"
+    python -m app.assistant "did she really say tax cuts pay for themselves"
 """
 from __future__ import annotations
 
@@ -39,40 +40,44 @@ from .transcriber import release_model, transcribe
 
 log = get_logger(__name__)
 
-SYSTEM_PROMPT = """You are Scene Sense — a conversational clip finder and scene analyst.
+SYSTEM_PROMPT = """You are Verbatim — a conversational quote-verification tool and \
+statement finder for public figures.
 
 You have TOOLS. To use a tool you MUST emit a real tool call — NEVER write a tool call
 as text (e.g. writing "make_clip start=12" in your message does nothing).
 
 Two kinds of request:
 
-A) "show me / find / play the scene (or clip/moment/part) where ..." — the user wants
-   the actual clip. You MUST, in order:
+A) "show me / find / play the moment (or clip/statement/part) where X said ..." — the user
+   wants the actual clip. You MUST, in order:
      1. identify_source_from_kb  — ALWAYS FIRST. The local knowledge base resolves vague
-        quotes/vibes to a title instantly. If it returns kb_hit=true, TRUST its top
-        candidate; do NOT second-guess it with identify_source or web_search.
+        or paraphrased quotes to a speaker + event instantly. If it returns kb_hit=true,
+        TRUST its top candidate; do NOT second-guess it with identify_source or web_search.
         Only if kb_hit=false, fall back to identify_source / web_search.
      2. find_and_fetch_video  (unless a video is already loaded) — use a specific query
-        built from the identified title (e.g. "<title> <quote> official scene").
+        built from the identified event (e.g. "<speaker> <event> full remarks").
      3. locate_moment  — find the exact window in the loaded video.
      4. make_clip  — cut it. Only AFTER a clip exists do you write the final answer.
-   Do NOT call verify_quote for these. Do NOT describe the scene before the clip is made.
+   Do NOT call verify_quote for these. Do NOT describe the statement before the clip is made.
 
-B) "did they really say X" / "what's the exact line" — call verify_quote only.
+B) "did they really say X" / "what's the exact quote" — call verify_quote only. This is
+   the CORE feature: confirm or correct a claimed quote with a citation, or say plainly
+   it can't be confirmed. NEVER confirm a quote you cannot ground in a transcript or citation.
 
-C) The query describes a FEELING / mood / atmosphere with no identifiable title,
-   character, or quote ("something that feels like quiet heartbreak") — call
-   vibe_search. It searches the local processed library by feeling. After it
-   returns, write 1-2 sentences summarizing the matches (the UI renders the
-   scene cards itself); if it returns no results, say so plainly and suggest
-   processing more videos. Do NOT call any other tool for these queries.
+C) The query describes a RHETORICAL TONE / mood with no identifiable speaker, event,
+   or quote ("something defiant", "a conciliatory moment") — call vibe_search. It
+   searches the local processed library by tone. After it returns, write 1-2 sentences
+   summarizing the matches (the UI renders the cards itself); if it returns no results,
+   say so plainly and suggest processing more videos. Do NOT call any other tool for these.
 
 RULES:
-- You identify the WORK (film/show/video), never a person by their face.
-- Cite the source title. NEVER fabricate a quote, source, or scene.
-- If you genuinely cannot find the clip, SAY SO and offer your best candidate + reasoning.
-- Final answer: tight and vivid (2-4 sentences) — what the scene is, its tone, what ties
-  it together. No step narration."""
+- You identify the SPEAKER and the EVENT (speech/interview/press conference), never a
+  person by their face alone.
+- Cite the source (event, date, outlet). NEVER fabricate a quote, source, or statement.
+- If you genuinely cannot confirm the statement, SAY SO plainly — an honest "couldn't
+  verify" beats a confident wrong answer.
+- Final answer: tight and precise (2-4 sentences) — who said it, in what context, what
+  ties it together. No step narration."""
 
 
 # ── modes (Phase 3): prompt/render variations over the SAME loop ─────────────
@@ -82,22 +87,22 @@ RULES:
 MODE_INSTRUCTIONS = {
     "analyze": (
         "MODE — Analyze Context. The clip is cut. In your final answer, after "
-        "naming the scene, ALSO explain it: what leads into this moment, the "
-        "emotional read (use the dominant emotion / emotion data you saw in the "
-        "tool results), and why the moment matters in the story. 5–8 sentences, "
-        "grounded ONLY in the transcript and tool evidence — never invent events."
+        "naming the statement, ALSO explain it: what prompted this remark, the "
+        "tone (use the dominant emotion / emotion data you saw in the tool "
+        "results), and why the moment matters in the broader event. 5–8 sentences, "
+        "grounded ONLY in the transcript and tool evidence — never invent context."
     ),
     "metadata": (
         "MODE — Extract Metadata. The clip is cut and the UI renders the "
-        "structured data itself. Reply with ONE short sentence naming the scene "
-        "and its source. No analysis, no step narration."
+        "structured data itself. Reply with ONE short sentence naming the "
+        "statement, its speaker, and its source. No analysis, no step narration."
     ),
 }
 
-_CLIP_WORDS = ("show", "find", "play", "clip", "scene", "moment", "the part", "where he",
-               "where she", "where they")
+_CLIP_WORDS = ("show", "find", "play", "clip", "statement", "moment", "the part", "where he",
+               "where she", "where they", "said")
 _VERIFY_WORDS = ("did they really", "did he really", "did she really", "what's the exact",
-                 "what is the exact", "misquote", "actually say", "real line")
+                 "what is the exact", "misquote", "actually say", "real quote", "real line")
 
 
 def _is_clip_request(question: str) -> bool:
@@ -119,18 +124,20 @@ def _tools() -> list[dict]:
         }
 
     return [
-        fn("identify_source_from_kb", "FIRST STOP for identifying the movie/show behind a "
-           "quote, scene description, or vibe. Instant local knowledge-base lookup; returns "
+        fn("identify_source_from_kb", "FIRST STOP for identifying the speaker/event behind a "
+           "quote, paraphrase, or description. Instant local knowledge-base lookup; returns "
            "ranked candidates {title, year, confidence, matched_quote, timestamp} and kb_hit. "
            "Trust a kb_hit=true top candidate.",
            {"query": {"type": "string"}}, ["query"]),
         fn("web_search", "Search the web for facts (source identification, exact quotes). "
            "Returns titles, urls, snippets.", {"query": {"type": "string"}}, ["query"]),
-        fn("identify_source", "Identify the SOURCE (movie/show/video) of a scene from dialogue "
-           "or description. Returns a cited best guess + a query to fetch the clip.",
+        fn("identify_source", "Identify the SOURCE (speech/interview/press event) of a "
+           "statement from wording or description. Returns a cited best guess + a query "
+           "to fetch the video.",
            {"query": {"type": "string"}}, ["query"]),
         fn("find_and_fetch_video", "Search YouTube and download+transcribe the top match, "
-           "loading it as the current video. Use a specific query (e.g. an official clip title).",
+           "loading it as the current video. Use a specific query (e.g. an official speech "
+           "or press-conference title).",
            {"query": {"type": "string"}}, ["query"]),
         fn("locate_moment", "Locate the best moment window for a query within the loaded "
            "video's transcript. Returns {start,end,quote,dominant_emotion,score}. Needs a loaded video.",
@@ -140,12 +147,12 @@ def _tools() -> list[dict]:
            {"start": {"type": "number"}, "end": {"type": "number"},
             "quote": {"type": "string"}, "dominant_emotion": {"type": "string"}},
            ["start", "end"]),
-        fn("verify_quote", "Verify/correct a possibly-misremembered quote. Returns the exact "
-           "line + source + confidence; hedges when unverifiable.",
+        fn("verify_quote", "Verify/correct a possibly-misremembered public statement. Returns "
+           "the exact wording + source + confidence; hedges when unverifiable.",
            {"quote": {"type": "string"}, "source_context": {"type": "string"}}, ["quote"]),
-        fn("vibe_search", "Search the LOCAL processed library by FEELING/mood — use when "
-           "the query describes an atmosphere ('feels like quiet heartbreak') rather than "
-           "an identifiable scene. Returns top matching scenes {title, start, end, why} "
+        fn("vibe_search", "Search the LOCAL processed library by RHETORICAL TONE — use when "
+           "the query describes a mood ('something defiant', 'a conciliatory moment') rather "
+           "than an identifiable quote. Returns top matching moments {title, start, end, why} "
            "or an honest empty result.",
            {"query": {"type": "string"}}, ["query"]),
     ]
@@ -250,11 +257,11 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
             log.info("[%s] locate_moment: no match in transcript of %r (%s)",
                      qid, session.video.title, session.video.path)
             return {"error": "no matching moment found"}
-        # outbound filter: if the located scene itself is explicit, withhold it
+        # outbound filter: if the located statement itself is explicit, withhold it
         blocked = content_filter.check(moment.quote)
         if blocked:
-            log.info("[%s] blocked outbound scene (category=%s)", qid, blocked)
-            return {"error": "this scene isn't available — tell the user so, briefly, "
+            log.info("[%s] blocked outbound statement (category=%s)", qid, blocked)
+            return {"error": "this statement isn't available — tell the user so, briefly, "
                              "and do not retry or describe it"}
         result.quote = moment.quote
         result.dominant_emotion = moment.dominant_emotion
@@ -270,7 +277,7 @@ def _run_tool(name: str, args: dict, session: Session, result: _Result,
         blocked = content_filter.check(args.get("quote") or result.quote)
         if blocked:
             log.info("[%s] blocked make_clip (category=%s)", qid, blocked)
-            return {"error": "this scene isn't available — tell the user so, briefly"}
+            return {"error": "this statement isn't available — tell the user so, briefly"}
         clip = _timed("clip", make_clip,
                       session.video.path, float(args["start"]), float(args["end"]),
                       quote=args.get("quote", result.quote or ""),
@@ -305,10 +312,10 @@ def _naturalize_suggestions(suggestions: list[dict]) -> list[dict]:
                             for i, s in enumerate(suggestions))
         resp = llm_chat([
             {"role": "system",
-             "content": "You suggest movie scenes. For each candidate write ONE short "
-                        "tap-to-ask suggestion (max 10 words) that MUST include the "
-                        "movie/show title, e.g. 'The \"why so serious\" scene from The "
-                        "Dark Knight?'. Never invent lines. Reply ONLY JSON: "
+             "content": "You suggest public statements to explore next. For each candidate "
+                        "write ONE short tap-to-ask suggestion (max 10 words) that MUST "
+                        "include the speaker or event, e.g. 'The \"ask not\" line from "
+                        "JFK's inaugural?'. Never invent lines. Reply ONLY JSON: "
                         '{"suggestions": ["...", ...]} in the same order.'},
             {"role": "user", "content": listing},
         ])
@@ -355,7 +362,7 @@ def _trace_line(name: str, args: dict, out: dict, result: "_Result") -> Optional
         return f'ffmpeg: cut {out.get("duration", 0):.1f}s clip'
     if name == "vibe_search":
         rs = out.get("results") or []
-        return (f'vibe: {len(rs)} scene(s), top {rs[0]["score"]:.2f}' if rs
+        return (f'vibe: {len(rs)} moment(s), top {rs[0]["score"]:.2f}' if rs
                 else 'vibe: below threshold — honest miss')
     if name == "verify_quote":
         return f'verify: {str(out.get("source") or out.get("verdict") or "checked")[:46]}'
@@ -444,7 +451,7 @@ def _run_impl(question: str, session_id: str, mode: str, qid: str,
         result.source = session.video.title or None
 
     # Retrieval runs with a CLEAN context scoped to this question only — no prior
-    # turns, no prior scene data.
+    # turns, no prior statement data.
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": question},
@@ -496,8 +503,8 @@ def _run_impl(question: str, session_id: str, mode: str, qid: str,
                 nudges += 1
                 if not session.video and "find_and_fetch_video" not in called:
                     step = ("You have NOT fetched a video yet. Call find_and_fetch_video now "
-                            "with a specific query (e.g. an official movie CLIP title). "
-                            "Do not answer in text — emit the tool call.")
+                            "with a specific query (e.g. an official speech or press-conference "
+                            "title). Do not answer in text — emit the tool call.")
                 elif session.video and "locate_moment" not in called:
                     step = ("The video is loaded. Call locate_moment now to find the exact "
                             "window. Emit the tool call — do not describe it.")
@@ -579,7 +586,7 @@ def _run_impl(question: str, session_id: str, mode: str, qid: str,
     if clip_request and result.clip is None and not final_text:
         hedge = ("I couldn't confidently pull that exact clip just now"
                  + (f" — best guess: {result.source}." if result.source else ".")
-                 + " Try rephrasing with the movie name, or load a video and ask again.")
+                 + " Try rephrasing with the speaker's name, or load a video and ask again.")
         explanation_parts.append(hedge)
         yield {"type": "text", "delta": hedge}
 
@@ -648,7 +655,7 @@ def _run_impl(question: str, session_id: str, mode: str, qid: str,
 
 
 def _cli() -> None:
-    ap = argparse.ArgumentParser(description="Ask Scene Sense a question (standalone)")
+    ap = argparse.ArgumentParser(description="Ask Verbatim a question (standalone)")
     ap.add_argument("question")
     ap.add_argument("--session", default="default")
     args = ap.parse_args()

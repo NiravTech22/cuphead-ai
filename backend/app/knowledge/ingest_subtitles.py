@@ -1,14 +1,15 @@
-"""knowledge/ingest_subtitles.py — index a LOCAL folder of .srt files into the KB.
+"""knowledge/ingest_subtitles.py — index a LOCAL folder of .srt transcripts into the KB.
 
-Point it at subtitles you own; each file's dialogue lines are stored as quotes
-with timestamps and embedded for semantic search. The title is guessed from the
-filename ("The.Dark.Knight.2008.srt" -> "The Dark Knight", 2008) and matched to
-an existing KB title when possible.
+Point it at transcripts you own (speeches, interviews, press conferences); each
+file's lines are stored as quotes with timestamps and embedded for semantic
+search. The event title is guessed from the filename
+("Obama.Victory.Speech.2008.srt" -> "Obama Victory Speech", 2008) and matched
+to an existing KB title when possible.
 
-This tool does NOT fetch subtitles from anywhere — bring your own files.
+This tool does NOT fetch transcripts from anywhere — bring your own files.
 
   python -m app.knowledge.ingest_subtitles /path/to/srt/folder
-  python -m app.knowledge.ingest_subtitles file.srt --title "The Dark Knight" --year 2008
+  python -m app.knowledge.ingest_subtitles file.srt --title "Obama Victory Speech" --year 2008
 """
 from __future__ import annotations
 
@@ -90,7 +91,7 @@ def ingest_file(conn, path: Path, title: str | None = None, year: int | None = N
         "SELECT id FROM titles WHERE LOWER(title)=LOWER(?) "
         "AND (? IS NULL OR year IS NULL OR year=?)", (title, year, year)).fetchone()
     tid = row["id"] if row else db.upsert_title(
-        conn, title=title, year=year, type_="movie", genres="", overview="")
+        conn, title=title, year=year, type_="speech", genres="", overview="")
 
     conn.execute("DELETE FROM quotes WHERE title_id=? AND approx_timestamp IS NOT NULL", (tid,))
     conn.execute("INSERT INTO quotes_fts(quotes_fts) VALUES('rebuild')")
@@ -110,7 +111,7 @@ def ingest_file(conn, path: Path, title: str | None = None, year: int | None = N
 
 
 def _cli() -> None:
-    ap = argparse.ArgumentParser(description="Index local .srt subtitles into the movie KB")
+    ap = argparse.ArgumentParser(description="Index local .srt transcripts into the statements KB")
     ap.add_argument("path", help=".srt file or a folder of .srt files")
     ap.add_argument("--title", help="override the title guessed from the filename")
     ap.add_argument("--year", type=int)

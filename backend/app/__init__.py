@@ -1,1 +1,1 @@
-"""Scene Sense backend package."""
+"""Verbatim backend package."""

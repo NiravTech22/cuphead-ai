@@ -10,7 +10,7 @@ FILTER_STRICT is on (default true — also blocks R-rated-adjacent asks).
 Applied at three points (see assistant.py):
   inbound user query -> polite refusal, no tool loop
   predicted suggestions -> dropped before rendering
-  outbound located scene quote -> "scene isn't available" instead of the clip
+  outbound located statement quote -> "statement isn't available" instead of the clip
 
 Logging: category only, never the user's full text.
 """
@@ -25,8 +25,8 @@ from .logging_setup import get_logger
 
 log = get_logger(__name__)
 
-REFUSAL = "I can't help with that request — try asking about a different scene."
-UNAVAILABLE = "This scene isn't available."
+REFUSAL = "I can't help with that request — try asking about a different statement."
+UNAVAILABLE = "This statement isn't available."
 
 _lock = threading.Lock()
 _mtime: float = -1.0

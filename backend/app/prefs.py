@@ -1,12 +1,12 @@
 """prefs.py — preference engine: session vibe, persistent profile, next-clip prediction.
 
 Three layers:
-  A. Session vibe — per-session list of delivered scenes (genres/tones/eras),
+  A. Session vibe — per-session list of delivered statements (genres/tones/eras),
      summarized on demand. Works from the first request; no history needed.
   B. Persistent profile — data/preferences.json accumulates delivery events
      across ALL sessions with exponential recency decay (half-life ~7 days),
      so last week's taste outweighs last month's.
-  C. Prediction — KB nearest-neighbors to the just-delivered scene, boosted by
+  C. Prediction — KB nearest-neighbors to the just-delivered statement, boosted by
      the profile + session vibe, turned into 2-3 tappable suggestions.
      Text-only: nothing is downloaded or pre-processed until a chip is tapped.
 """
@@ -51,7 +51,7 @@ def _genre_list(genres: str) -> list[str]:
 def record_delivery(session: Session, *, title: str, quote: str = "",
                     tone: Optional[str] = None, year: Optional[int] = None,
                     genres: str = "") -> dict:
-    """Track a delivered scene in the session vibe + the persistent profile."""
+    """Track a delivered statement in the session vibe + the persistent profile."""
     kb_row = title_info(title)
     if kb_row:
         year = year or kb_row.get("year")
@@ -111,7 +111,7 @@ def session_vibe(session: Session) -> dict:
         "genres": [g for g, _ in c["genres"].most_common(3)],
         "tones": [t for t, _ in c["tones"].most_common(2)],
         "era": next(iter([d for d, _ in c["decades"].most_common(1)]), None),
-        "scenes": len(session.history),
+        "statements": len(session.history),
     }
 
 
@@ -138,13 +138,13 @@ def _is_cached(title: str, cached: list[str]) -> bool:
 
 def suggest_next(session: Session, *, title: str, quote: str = "",
                  tone: Optional[str] = None, k: int = 3) -> list[dict]:
-    """KB nearest-neighbors to the delivered scene, boosted by taste. Text-only."""
+    """KB nearest-neighbors to the delivered statement, boosted by taste. Text-only."""
     profile = get_user_profile()
     vibe = session_vibe(session)
     kb_row = title_info(title)
     genres = _genre_list(kb_row.get("genres", "")) if kb_row else []
 
-    # neighbor search seeded by the scene's own text + its vibe words
+    # neighbor search seeded by the statement's own text + its vibe words
     seed = " ".join(filter(None, [quote, title, ", ".join(genres), tone or ""]))
     cands = search_knowledge(seed, k=12)
 
@@ -154,7 +154,7 @@ def suggest_next(session: Session, *, title: str, quote: str = "",
     for c in cands:
         cnorm = (c["title"] or "").lower()
         if not cnorm or cnorm in delivered_norm or delivered_norm in cnorm:
-            continue  # never suggest the scene we just delivered
+            continue  # never suggest the statement we just delivered
         if cnorm in seen_titles:
             continue
         seen_titles.add(cnorm)
@@ -172,10 +172,10 @@ def suggest_next(session: Session, *, title: str, quote: str = "",
     for score, c in scored[:k]:
         if c.get("matched_quote"):
             q = c["matched_quote"].strip().rstrip(".")
-            query = f"show me the scene in {c['title']} where they say '{q[:70]}'"
+            query = f"show me the moment in {c['title']} where they say '{q[:70]}'"
             label = f"“{q[:44]}” — {c['title']}"
         else:
-            query = f"show me an iconic scene from {c['title']} ({c['year']})"
+            query = f"show me a notable moment from {c['title']} ({c['year']})"
             label = f"Something from {c['title']} ({c['year']})"
         out.append({
             "label": label, "query": query, "title": c["title"], "year": c["year"],

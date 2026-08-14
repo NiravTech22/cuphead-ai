@@ -1,5 +1,11 @@
 # Scene Sense — Demo Script v2 (2026-07-17)
 
+> **Pre-pivot.** Written for the old movie-scene-finder domain, before the
+> 2026-08-14 rename to Verbatim (see [DECISIONS.md](DECISIONS.md) ADR-016 and
+> [CHANGELOG.md](CHANGELOG.md)). The beats/structure below still apply to a
+> quote-verification demo — swap the movie queries for statement queries from
+> `app/knowledge/seed.py` — but the specific pre-processed clip list is stale.
+
 A 90-second, five-beat sequence. Each beat lands one idea; don't narrate the
 plumbing — the app shows it.
 

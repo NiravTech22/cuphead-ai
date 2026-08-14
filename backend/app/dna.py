@@ -1,4 +1,4 @@
-"""dna.py — Scene DNA share card (1200×630 PNG, download-only, no hosting).
+"""dna.py — Clip DNA share card (1200×630 PNG, download-only, no hosting).
 
 Composes, server-side with Pillow (ADR-013): the clip's key frame (subtly
 desaturated, espresso gradient overlay), the quote in serif italic, source +
@@ -99,9 +99,9 @@ def render_card(clip_id: str, title: Optional[str] = None) -> bytes:
     if not title:
         try:
             info = json.loads((config.DOWNLOADS_DIR / f"{vid}.info.json").read_text())
-            title = info.get("title", "Scene Sense")[:60]
+            title = info.get("title", "Verbatim")[:60]
         except (FileNotFoundError, json.JSONDecodeError):
-            title = "Scene Sense"
+            title = "Verbatim"
 
     frame = _keyframe(src, (start + end) / 2)
     card = Image.new("RGB", (W, H), BG)
@@ -162,11 +162,11 @@ def render_card(clip_id: str, title: Optional[str] = None) -> bytes:
         bd.line(xy, fill=ACCENT + (255,), width=S + 1, joint="curve")
         strip = big.resize((gx1 - gx0, gy1 - gy0), Image.LANCZOS)
         card.paste(strip, (gx0, gy0), strip)
-        _tracked(d, (gx0, gy1 + 10), "scene dna — emotional intensity",
+        _tracked(d, (gx0, gy1 + 10), "clip dna — emotional intensity",
                  _font(SANS, 12), DIM, 2)
 
     # wordmark + restrained botanical dot ornament
-    wm = "Scene Sense"
+    wm = "Verbatim"
     fwm = _font(SERIF, 26)
     wm_w = d.textlength(wm, font=fwm)
     d.text((W - MX - wm_w, H - 62), wm, font=fwm, fill=FG)

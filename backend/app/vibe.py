@@ -1,7 +1,7 @@
-"""vibe.py — search the PROCESSED library by feeling (CPU, cache only).
+"""vibe.py — search the PROCESSED library by rhetorical tone (CPU, cache only).
 
-"a scene that feels like quiet heartbreak" → top scenes from already-cached
-videos. Score = W_TEXT * cosine(query emb, scene-transcript emb)
+"a moment that feels defiant" → top moments from already-cached videos.
+Score = W_TEXT * cosine(query emb, scene-transcript emb)
             + W_EMO  * cosine(feeling target, scene emotion profile),
 where the feeling target comes from backend/feelings.json (editable) — any
 feeling words present in the query contribute their emotion vectors. If the
@@ -204,7 +204,7 @@ def search(query: str, k: int = 3) -> dict:
         })
     if not results:
         return {"results": [],
-                "note": "no processed scene clears the vibe threshold — "
+                "note": "no processed moment clears the vibe threshold — "
                         "process more videos to widen the library"}
     log.info("vibe: %r -> %s", query,
              [(r["title"][:30], r["score"]) for r in results])

@@ -1,4 +1,38 @@
-# Scene Sense — Changelog
+# Verbatim — Changelog
+
+## [2026-08-14] Pivot: Scene Sense → Verbatim (movie-scene finder → quote verification)
+
+**What changed.** Retargeted the app from finding movie/TV scenes to
+verifying public figures' on-the-record statements (speeches, interviews,
+press conferences) for journalists and fact-checkers. The retrieval pipeline
+itself is unchanged — identify source → fetch/transcribe → locate moment →
+cut clip → verify quote — only the domain and framing moved: system prompts,
+tool descriptions, and UI copy in `app/assistant.py` and
+`app/static/index.html`; the movie KB (`app/knowledge/seed.py`, TMDB-backed
+`ingest_tmdb.py`) replaced by a ~30-entry public-statements KB
+(`statements.db`) seeded from well-documented, video-recorded historical
+statements, plus a new bring-your-own-JSON ingester
+(`app/knowledge/ingest_events.py`) in place of the TMDB scraper; env var
+prefix `SCENE_SENSE_*` → `VERBATIM_*`; the Featured rail's `CURATED` list
+cleared (old entries pointed at cached movie clips that no longer belong in
+this domain — see `app/featured.py`).
+
+**Why.** The app's actual differentiator — provenance tags, a three-part
+confidence ledger, and a verifier that refuses to fabricate — was decoration
+on a domain (movie quotes) where being wrong carries no real cost. Pointed at
+claimed public statements, the same anti-fabrication machinery is the whole
+product instead of a nice-to-have.
+
+**Files.** `app/assistant.py`, `app/main.py`, `app/config.py`, `app/dna.py`,
+`app/device.py`, `app/logging_setup.py`, `app/filter.py`, `app/source_id.py`,
+`app/verifier.py`, `app/vibe.py`, `app/prefs.py`, `app/featured.py`,
+`app/generate_featured_assets.py`, `app/knowledge/*.py`,
+`app/static/index.html`, `.env`, `.env.example`, `blocked_terms.txt`,
+`requirements.txt`, `README.md`.
+
+**How it was verified.** All Python modules compile clean
+(`py_compile`); server starts and `/api/health` returns `llm_provider=ollama`;
+KB reseed (`python -m app.knowledge.seed`) reports 30 titles / 34 quotes.
 
 ## [2026-07-17] Interrupt suite Phase 3 — Interrupt-and-replace
 

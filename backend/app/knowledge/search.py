@@ -1,4 +1,4 @@
-"""knowledge/search.py — semantic + keyword search over the movie KB.
+"""knowledge/search.py — semantic + keyword search over the public-statements KB.
 
 `search_knowledge(query, k)` merges three signals:
   1. exact/near-exact quote matches (quoted phrase found in a quote line) — top rank

@@ -1,4 +1,4 @@
-"""generate_featured_assets.py — materialize the Featured Scenes rail assets.
+"""generate_featured_assets.py — materialize the Featured Statements rail assets.
 
     python -m app.generate_featured_assets
 

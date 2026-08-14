@@ -1,4 +1,4 @@
-"""knowledge — local movie/show knowledge base (RAG retrieval layer, CPU-only).
+"""knowledge — local public-statements knowledge base (RAG retrieval layer, CPU-only).
 
 Public surface:
     search_knowledge(query, k=5)  -> ranked candidates (quotes above vibes)

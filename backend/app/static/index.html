@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f3ed" />
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161310" />
-<title>Scene Sense</title>
+<title>Verbatim</title>
 <script>
   // set theme before first paint to avoid flash
   (function () {
@@ -372,7 +372,7 @@
   }
   .recent .r-x:hover { color: var(--warn); }
 
-  /* ── featured scenes rail ───────────────── */
+  /* ── featured statements rail ───────────────── */
   .featured { margin-top: 36px; opacity: .75; transition: opacity .35s ease; }
   .featured:hover, .featured:focus-within, .featured.lit { opacity: 1; }
   .featured .label { display: block; margin-bottom: 12px; }
@@ -873,7 +873,7 @@
           aria-expanded="false" aria-controls="drawer" title="Menu">
     <span class="glyph"><span class="l1"></span><span class="l2"></span></span>
   </button>
-  <a class="brand" href="#/">Scene <em>Sense</em></a>
+  <a class="brand" href="#/">Ver<em>batim</em></a>
   <button class="theme-btn" id="themeSwitch" aria-label="Switch to dark mode" title="Dark mode">
     <svg class="celestial" viewBox="0 0 24 24" fill="none" stroke="currentColor"
          stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
@@ -906,7 +906,7 @@
 <div class="overlay" id="overlay"></div>
 <nav class="drawer" id="drawer" aria-label="Menu">
   <div class="drawer-head">
-    <span class="label">Scene Sense</span>
+    <span class="label">Verbatim</span>
     <button class="drawer-close" id="drawerClose" aria-label="Close menu">×</button>
   </div>
   <div class="drawer-body">
@@ -923,7 +923,7 @@
     <div class="flora-nav" aria-hidden="true"><svg><use href="#sprig"/></svg></div>
   </div>
   <div class="drawer-foot">
-    <span>Scene Sense</span>
+    <span>Verbatim</span>
     <span id="sessionTag"></span>
   </div>
 </nav>
@@ -933,12 +933,12 @@
   <!-- ── HOME ─────────────────────────────── -->
   <section class="page" id="page-home">
     <div class="hero" id="hero">
-      <h1>Ask about <em>any scene</em>.</h1>
-      <p>Describe a moment from a movie, show, or video — get the scene found, explained, and clipped, with sources.</p>
+      <h1>Ask about <em>any statement</em>.</h1>
+      <p>Describe a moment from a speech, interview, or press conference — get the statement verified, explained, and clipped, with sources.</p>
       <div class="examples">
-        <button data-q="show me the scene where 'why so serious' is said">“why so serious”</button>
-        <button data-q="the scene in Interstellar where Cooper watches 23 years of messages">Interstellar — the messages</button>
-        <button data-q="the 'I am the one who knocks' scene from Breaking Bad">“I am the one who knocks”</button>
+        <button data-q="did they really say 'read my lips, no new taxes'">“read my lips, no new taxes”</button>
+        <button data-q="the moment in JFK's inaugural address where he says ask not what your country can do for you">JFK's inaugural — “ask not”</button>
+        <button data-q="the 'I am not a crook' moment from Nixon">“I am not a crook”</button>
       </div>
     </div>
     <div id="thread"></div>
@@ -949,15 +949,16 @@
     <span class="eyebrow">About</span>
     <h1 class="page-title">Finding the <em>exact</em> moment.</h1>
     <svg class="orn" aria-hidden="true"><use href="#orn-divider"/></svg>
-    <p>Scene Sense is a conversational clip finder. Describe a moment from a film,
-       show, or video — it identifies the source, fetches and transcribes the footage,
-       pinpoints the moment down to the spoken line, cuts a playable clip, and explains
-       the scene with cited sources.</p>
+    <p>Verbatim is a conversational quote-verification tool. Describe a statement from a
+       speech, interview, or press conference — it identifies the source, fetches and
+       transcribes the footage, pinpoints the moment down to the spoken line, cuts a
+       playable clip, and explains the statement with cited sources.</p>
     <h3>Why it was made</h3>
-    <p class="soft">Because half-remembering a scene usually means scrubbing through a
-       whole video hoping to spot it. That felt like a search problem, not a patience
-       problem — so this tool treats it as one: transcript search with word-level
-       timestamps, a semantic matcher, and an emotion signal to break ties.</p>
+    <p class="soft">Because "did they really say that?" usually means scrubbing through a
+       whole video hoping to spot it — or worse, trusting a screenshot. That felt like a
+       search-and-verification problem, not a patience problem — so this tool treats it
+       as one: transcript search with word-level timestamps, a semantic matcher, and a
+       verifier that refuses to confirm what it can't ground in a source.</p>
     <h3>How it works</h3>
     <ul class="tick">
       <li><i></i><span>A local LLM orchestrates the tools — identify, fetch, locate, clip.</span></li>
@@ -967,8 +968,9 @@
       <li><i></i><span>Facial-expression analysis (emotion only, never identity) nudges ambiguous matches.</span></li>
       <li><i></i><span>ffmpeg cuts a standalone clip; the answer cites its sources.</span></li>
     </ul>
-    <p class="note">Runs locally on your machine. Videos are fetched for personal
-       reference; nothing you ask leaves your device except the video search itself.</p>
+    <p class="note">Runs locally on your machine, for public figures' on-the-record public
+       statements only — speeches, interviews, press conferences. Videos are fetched for
+       personal reference; nothing you ask leaves your device except the video search itself.</p>
   </section>
 
   <!-- ── GUIDE ────────────────────────────── -->
@@ -976,29 +978,29 @@
     <span class="eyebrow">Guide</span>
     <h1 class="page-title">Asking <em>well</em>.</h1>
     <svg class="orn" aria-hidden="true"><use href="#orn-divider"/></svg>
-    <p class="soft">Scene Sense finds what you can describe. The more anchors you give
-       it — title, a quoted line, who's in the scene, the feeling of it — the sharper
+    <p class="soft">Verbatim finds what you can describe. The more anchors you give
+       it — speaker, a quoted line, the event, the tone of it — the sharper
        the match.</p>
     <h3>What works</h3>
     <ul class="tick">
-      <li><i></i><span><b>Name the work.</b> “…in The Dark Knight” beats “…in that Batman movie”.</span></li>
+      <li><i></i><span><b>Name the speaker.</b> “…JFK's inaugural” beats “…that old speech”.</span></li>
       <li><i></i><span><b>Quote what you remember</b>, in quotes. A quoted line is matched
           word-by-word against the transcript, so the clip lands exactly on it.</span></li>
-      <li><i></i><span><b>One scene per question.</b> Every question is resolved fresh, from
-          scratch — ask about a new scene any time, no reset needed.</span></li>
-      <li><i></i><span><b>Describe the emotion.</b> Words like <code>furious</code>,
-          <code>celebrates</code>, <code>heartbroken</code> feed the emotion timeline and help
-          break ties between similar dialogue.</span></li>
+      <li><i></i><span><b>One statement per question.</b> Every question is resolved fresh, from
+          scratch — ask about a new statement any time, no reset needed.</span></li>
+      <li><i></i><span><b>Describe the tone.</b> Words like <code>defiant</code>,
+          <code>somber</code>, <code>conciliatory</code> feed the emotion timeline and help
+          break ties between similar wording.</span></li>
       <li><i></i><span><b>Verify quotes</b> with “did they really say…” — you'll get the exact
           line, its source, and a confidence instead of a clip.</span></li>
     </ul>
     <h3>Try one</h3>
-    <button class="ex-block" data-q="show me the scene in The Dark Knight where the Joker says 'why so serious'">
-      “show me the scene in The Dark Knight where the Joker says ‘why so serious’”
-      <small>Clip request — source named, line quoted</small>
+    <button class="ex-block" data-q="show me the moment in JFK's inaugural address where he says 'ask not what your country can do for you'">
+      “show me the moment in JFK's inaugural address where he says ‘ask not…’”
+      <small>Clip request — speaker named, line quoted</small>
     </button>
-    <button class="ex-block" data-q="did they really say 'Luke, I am your father' in The Empire Strikes Back">
-      “did they really say ‘Luke, I am your father’?”
+    <button class="ex-block" data-q="did they really say 'read my lips, no new taxes ever' in the 1988 RNC speech">
+      “did they really say ‘read my lips, no new taxes ever’?”
       <small>Quote verification — exact line + confidence</small>
     </button>
     <h3>Power use</h3>
@@ -1038,7 +1040,7 @@
     <h3>Content</h3>
     <div class="row">
       <div><div class="r-txt">Strict content filter</div>
-        <div class="r-sub">Also blocks R-rated-adjacent scene requests.</div></div>
+        <div class="r-sub">Also blocks R-rated-adjacent requests.</div></div>
       <label class="switch mini-switch"><input type="checkbox" id="filterToggle" checked />
         <span class="track"></span><span class="knob"></span></label>
     </div>
@@ -1064,21 +1066,21 @@
 
 </main>
 
-<!-- featured-scene preview overlay -->
+<!-- featured-statement preview overlay -->
 <div class="fmodal" id="fmodal" hidden>
   <div class="fm-back" id="fmBack"></div>
   <div class="fm-card" role="dialog" aria-modal="true" aria-labelledby="fmTitle">
     <div class="f-media"><video id="fmVideo" muted loop playsinline></video></div>
     <div class="fm-title" id="fmTitle"></div>
     <div class="fm-hook" id="fmHook"></div>
-    <div class="fm-actions"><button class="btn" id="fmGo">Get this scene</button></div>
+    <div class="fm-actions"><button class="btn" id="fmGo">Get this clip</button></div>
   </div>
 </div>
 
 <form class="dock" id="f">
   <div class="mode-pop" id="modePop" hidden role="radiogroup" aria-label="Query modes">
     <button type="button" class="mode-opt" role="radio" data-mode="find" aria-checked="true">
-      <i></i><span>Find Scene<small>Locate the moment and cut the clip — the default.</small></span>
+      <i></i><span>Find Statement<small>Locate the moment and cut the clip — the default.</small></span>
     </button>
     <button type="button" class="mode-opt" role="radio" data-mode="analyze" aria-checked="false">
       <i></i><span>Analyze Context<small>Same search, plus what leads in, the emotional read, and why the moment matters.</small></span>
@@ -1089,7 +1091,7 @@
   </div>
   <div class="bar">
     <button type="button" class="mode-pill" id="modeBtn" aria-haspopup="true" aria-expanded="false">+ Modes</button>
-    <input id="q" autocomplete="off" placeholder="Describe a scene…" />
+    <input id="q" autocomplete="off" placeholder="Describe a statement…" />
     <span class="rec-time" id="recTime" hidden>0:00</span>
     <button type="button" class="mic-btn" id="micBtn" aria-label="Search by voice" title="Search by voice">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
@@ -1115,10 +1117,10 @@ const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // ── hero input: cycling placeholder examples (ONE editable constant) ──
 // Every string is asserted against the content filter at backend startup.
 const PLACEHOLDER_QUERIES = [
-  "Find the moment where Cooper sees his kids again…",
-  "Explain the symbolism in the diner scene…",
-  "Show me the scene where she says 'you look lonely'…",
-  "What happens right after the rooftop fight in…",
+  "Did they really say 'read my lips, no new taxes'…",
+  "Show me the moment JFK says 'ask not what your country'…",
+  "What's the exact line from MLK's 'I've been to the mountaintop'…",
+  "Find the moment right after the Challenger disaster address…",
 ];
 let phTimer = null;
 let phIndex = 0;
@@ -1141,7 +1143,7 @@ input.addEventListener('focus', stopPlaceholderCycle, { once: true });
 input.addEventListener('input', stopPlaceholderCycle, { once: true });
 
 // ── modes: per-query prompt/render variation; never touches retrieval ──
-const MODE_LABELS = { find: 'Find Scene', analyze: 'Analyze', metadata: 'Metadata' };
+const MODE_LABELS = { find: 'Find Statement', analyze: 'Analyze', metadata: 'Metadata' };
 const modeBtn = document.getElementById('modeBtn');
 const modePop = document.getElementById('modePop');
 let currentMode = 'find';
@@ -1151,7 +1153,7 @@ function renderModePill() {
   modeBtn.classList.toggle('active', currentMode !== 'find');
   if (currentMode !== 'find') {
     const x = document.createElement('span');
-    x.className = 'x'; x.textContent = '✕'; x.title = 'Back to Find Scene';
+    x.className = 'x'; x.textContent = '✕'; x.title = 'Back to Find Statement';
     modeBtn.appendChild(x);
   }
 }
@@ -1184,7 +1186,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openModePop(false); });
 
-// ── featured scenes rail (real cache-derived data; server pre-filters) ──
+// ── featured statements rail (real cache-derived data; server pre-filters) ──
 const fmodal = document.getElementById('fmodal');
 const fmVideo = document.getElementById('fmVideo');
 const fmTitle = document.getElementById('fmTitle');
@@ -1222,7 +1224,7 @@ async function loadFeatured() {
   if (!items.length) return;   // empty manifest: the rail simply doesn't render
   const sec = document.createElement('div'); sec.className = 'featured';
   const h = document.createElement('span'); h.className = 'label';
-  h.textContent = 'Featured scenes';
+  h.textContent = 'Featured statements';
   const rail = document.createElement('div'); rail.className = 'f-rail';
   const makeCard = (it, dup) => {
     const card = document.createElement('button');
@@ -1802,7 +1804,7 @@ function handle(ev, steps, text, extra, mode) {
       w.textContent = it.why;
       box.append(t, w); card.appendChild(box);
       card.addEventListener('click', () => {   // normal fresh clip delivery
-        input.value = `show me the scene in ${it.title} where "${it.snippet}"`;
+        input.value = `show me the moment in ${it.title} where "${it.snippet}"`;
         ask();
       });
       wrap.appendChild(card);
@@ -2070,7 +2072,7 @@ async function renderScrubber(container, videoEl, clip) {
   });
 }
 
-// Timing badge threshold (seconds): under it we show "Scene found in X.Xs";
+// Timing badge threshold (seconds): under it we show "Clip found in X.Xs";
 // at/over it no timing is shown — never advertise slow runs. One constant.
 const TIMING_BADGE_MAX_S = 8;
 
@@ -2084,7 +2086,7 @@ function renderMeta(p, extra) {
   if (p.clip_url && !p.filtered) {           // conditional timing badge
     const fast = p.elapsed_s != null && p.elapsed_s < TIMING_BADGE_MAX_S;
     const parts = [];
-    if (fast) parts.push('Scene found in ' + p.elapsed_s.toFixed(1) + 's');
+    if (fast) parts.push('Clip found in ' + p.elapsed_s.toFixed(1) + 's');
     if (p.cache_hit) parts.push('⚡ cached');
     if (parts.length) {
       const c = document.createElement('span'); c.className = 'chip t-badge';
@@ -2105,11 +2107,11 @@ function renderMeta(p, extra) {
     if (p.match_score != null) chip('Match', Math.round(p.match_score * 100) + '%');
     if (p.video && p.video.title) chip('Video', p.video.title);
   }
-  if (p.clip && p.clip.clip_id) {        // Scene DNA share card (download-only)
+  if (p.clip && p.clip.clip_id) {        // Clip DNA share card (download-only)
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'chip dna-btn';
-    b.textContent = '⬡ Scene DNA';
-    b.title = 'Download a share card for this scene';
+    b.textContent = '⬡ Clip DNA';
+    b.title = 'Download a share card for this clip';
     b.addEventListener('click', async () => {
       b.disabled = true; b.textContent = '⬡ composing…';
       try {
@@ -2118,11 +2120,11 @@ function renderMeta(p, extra) {
         const blob = await (await fetch(u)).blob();
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `scene-dna-${p.clip.clip_id}.png`;
+        a.download = `clip-dna-${p.clip.clip_id}.png`;
         a.click();
         URL.revokeObjectURL(a.href);
       } catch { /* leave the button re-enabled for retry */ }
-      b.disabled = false; b.textContent = '⬡ Scene DNA';
+      b.disabled = false; b.textContent = '⬡ Clip DNA';
     });
     meta.appendChild(b);
   }

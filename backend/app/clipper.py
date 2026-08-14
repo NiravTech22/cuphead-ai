@@ -88,7 +88,7 @@ def make_clip(
 
     # Default: re-encode. Stream-copy is faster but seeks to the nearest keyframe,
     # which for arbitrary in/out points often produces a frozen/black lead-in.
-    # For short scene clips, a clean re-encode is worth the few seconds.
+    # For short clips, a clean re-encode is worth the few seconds.
     do_reencode = True if reencode is None else reencode
     has_audio = _has_stream(source_path, "a")
 

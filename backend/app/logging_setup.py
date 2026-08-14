@@ -17,7 +17,7 @@ def setup_logging() -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
-    level = os.getenv("SCENE_SENSE_LOG_LEVEL", "INFO").upper()
+    level = os.getenv("VERBATIM_LOG_LEVEL", "INFO").upper()
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(
         logging.Formatter(

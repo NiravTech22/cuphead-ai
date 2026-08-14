@@ -1,10 +1,10 @@
-"""verifier.py — misquote correction.
+"""verifier.py — misquote correction. Verbatim's core feature.
 
-Web-searches (locally) for the exact line, then asks the LLM to return a
-structured, cited verdict. HARD RULE: hedge when unverifiable, never fabricate a
-"corrected" line.
+Web-searches (locally) for the exact wording of a public statement, then asks
+the LLM to return a structured, cited verdict. HARD RULE: hedge when
+unverifiable, never fabricate a "corrected" line.
 
-    python -m app.verifier "Luke, I am your father"
+    python -m app.verifier "read my lips, no new taxes ever"
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ _SYSTEM = (
 
 
 def verify_quote(quote: str, source_context: Optional[str] = None) -> dict:
-    q = f'exact movie quote "{quote}"'
+    q = f'exact quote "{quote}"'
     if source_context:
         q += f" {source_context}"
     results = websearch.search(q, max_results=5)

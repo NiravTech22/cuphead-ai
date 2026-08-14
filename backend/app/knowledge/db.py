@@ -1,8 +1,11 @@
-"""knowledge/db.py — local SQLite movie knowledge base (RAG store).
+"""knowledge/db.py — local SQLite public-statements knowledge base (RAG store).
 
 Schema:
-  titles      (id, tmdb_id, title, year, type[movie|show], genres, overview, popularity)
+  titles      (id, tmdb_id, title, year, type[speech|interview|press|debate], genres, overview, popularity)
+              -- "title" is the event/speech title, "genres" doubles as topic tags,
+              -- "tmdb_id" is a legacy column name now used as a generic external-id dedup key
   quotes      (id, title_id, quote_text, character, approx_timestamp)
+              -- "character" holds the SPEAKER's name
   embeddings  (row_id, source_table, vector BLOB)   -- float32, normalized
   titles_fts / quotes_fts                            -- FTS5 keyword indexes
 
@@ -17,7 +20,7 @@ from ..logging_setup import get_logger
 
 log = get_logger(__name__)
 
-DB_PATH = config.DATA_DIR / "movies.db"
+DB_PATH = config.DATA_DIR / "statements.db"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS titles (
@@ -25,7 +28,7 @@ CREATE TABLE IF NOT EXISTS titles (
     tmdb_id     INTEGER UNIQUE,
     title       TEXT NOT NULL,
     year        INTEGER,
-    type        TEXT NOT NULL DEFAULT 'movie',
+    type        TEXT NOT NULL DEFAULT 'speech',
     genres      TEXT NOT NULL DEFAULT '',
     overview    TEXT NOT NULL DEFAULT '',
     popularity  REAL NOT NULL DEFAULT 0
