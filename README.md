@@ -1,8 +1,17 @@
 # cuphead-ai
 
+
+
 An autonomous Cuphead speedrunning agent: a learned latent world model with
 model-predictive control, a 60 Hz reflex layer, and an LLM strategist — built and
 driven by a self-orchestrating multi-agent development loop.
+
+
+<img width="1152" height="648" alt="cuphead1-1152x648" src="https://github.com/user-attachments/assets/b5e6a412-8c9d-46e0-8357-b4fc18344442" />
+
+
+
+
 
 **Start here:** [`docs/SPEEDRUN_PLAN.md`](docs/SPEEDRUN_PLAN.md) — the full technical
 breakdown. [`CLAUDE.md`](CLAUDE.md) — the engineering rules the agents work under.
