@@ -12,3 +12,25 @@ Three stores:
 The strategist reads the lessons, not the raw traces. A hundred raw traces will
 not fit in context; ten lessons with counts will, and they carry more signal.
 """
+
+from .replay import (
+    Replay,
+    ReplayAlignmentError,
+    ReplayError,
+    ReplayMeta,
+    ReplayReader,
+    ReplayWriter,
+    read_replay,
+    write_replay,
+)
+
+__all__ = [
+    "Replay",
+    "ReplayAlignmentError",
+    "ReplayError",
+    "ReplayMeta",
+    "ReplayReader",
+    "ReplayWriter",
+    "read_replay",
+    "write_replay",
+]

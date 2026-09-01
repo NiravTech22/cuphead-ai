@@ -10,27 +10,67 @@
     "exit_criterion": "Round-trip input->visible-response latency p50 < 30 ms and p99 < 50 ms, measured over 200 trials; zero duplicate or dropped frames over a 10-minute capture."
   },
   "phases": [
-    { "id": 0, "name": "harness", "status": "IMPLEMENTED", "exit_criterion": "latency p50 < 30ms, p99 < 50ms over 200 trials; 0 dup/dropped frames in 10 min capture" },
-    { "id": 1, "name": "perception", "status": "PENDING", "exit_criterion": "HP/card read 100% on 5000 held-out frames; event detector F1 >= 0.95 vs hand labels" },
-    { "id": 2, "name": "baseline_and_metrics", "status": "PENDING", "exit_criterion": "reproducible TTK distribution for target boss over 30 attempts, CI width < 15% of median" },
-    { "id": 3, "name": "reflex", "status": "PENDING", "exit_criterion": "parry conversion >= human median; reflex override precision >= 0.90" },
-    { "id": 4, "name": "world_model", "status": "PENDING", "exit_criterion": "hit-prediction AUC >= 0.85 at k=8 on held-out replays, per boss" },
-    { "id": 5, "name": "planner", "status": "PENDING", "exit_criterion": "median TTK beats phase-2 baseline, bootstrap CI excludes 0, n >= 30, planning latency <= 10 ms" },
-    { "id": 6, "name": "strategist", "status": "PENDING", "exit_criterion": ">= 3 LLM-proposed changes pass the statistical gate; calibration record established" },
-    { "id": 7, "name": "route", "status": "PENDING", "exit_criterion": "full-run assembly with per-segment gold splits tracked" }
+    {
+      "id": 0,
+      "name": "harness",
+      "status": "IMPLEMENTED",
+      "exit_criterion": "latency p50 < 30ms, p99 < 50ms over 200 trials; 0 dup/dropped frames in 10 min capture"
+    },
+    {
+      "id": 1,
+      "name": "perception",
+      "status": "PENDING",
+      "exit_criterion": "HP/card read 100% on 5000 held-out frames; event detector F1 >= 0.95 vs hand labels"
+    },
+    {
+      "id": 2,
+      "name": "baseline_and_metrics",
+      "status": "PENDING",
+      "exit_criterion": "reproducible TTK distribution for target boss over 30 attempts, CI width < 15% of median"
+    },
+    {
+      "id": 3,
+      "name": "reflex",
+      "status": "PENDING",
+      "exit_criterion": "parry conversion >= human median; reflex override precision >= 0.90"
+    },
+    {
+      "id": 4,
+      "name": "world_model",
+      "status": "PENDING",
+      "exit_criterion": "hit-prediction AUC >= 0.85 at k=8 on held-out replays, per boss"
+    },
+    {
+      "id": 5,
+      "name": "planner",
+      "status": "PENDING",
+      "exit_criterion": "median TTK beats phase-2 baseline, bootstrap CI excludes 0, n >= 30, planning latency <= 10 ms"
+    },
+    {
+      "id": 6,
+      "name": "strategist",
+      "status": "PENDING",
+      "exit_criterion": ">= 3 LLM-proposed changes pass the statistical gate; calibration record established"
+    },
+    {
+      "id": 7,
+      "name": "route",
+      "status": "PENDING",
+      "exit_criterion": "full-run assembly with per-segment gold splits tracked"
+    }
   ],
   "target_boss": "goopy_le_grande",
   "components": {
-    "perception": "NOT_STARTED",
+    "perception": "IN_PROGRESS",
     "state_estimation": "NOT_STARTED",
     "event_detection": "NOT_STARTED",
     "world_model": "NOT_STARTED",
     "planner": "NOT_STARTED",
     "policy": "NOT_STARTED",
-    "control": "NOT_STARTED",
+    "control": "IMPLEMENTED",
     "strategist": "NOT_STARTED",
-    "memory": "NOT_STARTED",
-    "evaluation": "NOT_STARTED",
+    "memory": "IN_PROGRESS",
+    "evaluation": "IMPLEMENTED",
     "orchestration": "IMPLEMENTED"
   },
   "latency_budget_ms": {
@@ -49,5 +89,14 @@
   },
   "iteration": 0,
   "last_updated": null,
-  "notes": "Nothing below phase 0 is meaningful until the harness passes its exit criterion. See docs/SPEEDRUN_PLAN.md section 2."
+  "notes": "Nothing below phase 0 is meaningful until the harness passes its exit criterion. See docs/SPEEDRUN_PLAN.md section 2. The harness is now code-complete (capture integrity, actuation, the replay format, and a human-demonstration recorder) and self-tested synthetically -- see harness_readiness above. The next action is real: run `python3 scripts/latency_canary.py --real` and `python3 scripts/record_session.py --real --boss <boss> --max-seconds <n>` on the machine actually running Cuphead.",
+  "harness_readiness": {
+    "capture_and_integrity": "IMPLEMENTED",
+    "actuation": "IMPLEMENTED",
+    "replay_format": "IMPLEMENTED",
+    "human_demo_recorder": "IMPLEMENTED",
+    "latency_measurement": "IMPLEMENTED",
+    "real_hardware_validated": false,
+    "note": "Everything above is code-complete and stdlib/synthetic-tested (see .ai/tasks.json notes on each harness-* task). None of it is VALIDATED yet -- that requires running scripts/latency_canary.py --real and scripts/record_session.py --real on the machine actually running Cuphead. Until then, phase 0's exit criterion is not met and phase 1 stays locked, per the build order in docs/SPEEDRUN_PLAN.md section 9."
+  }
 }

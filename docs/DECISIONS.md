@@ -143,3 +143,63 @@ two different agents. Only `qa` moves a verdict, and `.ai/failures.json` records
 disagreement between a worker's claim and QA's measurement.
 
 **Reverses if.** Nothing. This one is structural.
+
+---
+
+## ADR-011 — Imitation learning bootstraps every boss, before RL or MPC touches the live game
+
+**Context.** A policy that starts from random exploration against the real game spends
+its first hours failing to survive long enough to see anything worth learning from, and
+every one of those attempts costs real, un-parallelizable wall-clock time against a game
+that cannot be save-stated or sped up.
+
+**Decision.** The first several dozen attempts on any new boss are human demonstrations
+(`scripts/record_session.py --real`, §2.5), and the first policy trained from them is
+behaviour cloning — imitate the recorded `state → action` mapping directly — before any
+RL fine-tuning or MPC planning runs against the live game. RL/MPC then refines a policy
+that is already in the right neighborhood, instead of finding that neighborhood by random
+exploration.
+
+**Reverses if.** A boss turns out to have attack patterns simple enough that a
+from-scratch policy converges in fewer live attempts than collecting and cloning a human
+dataset would cost — plausible for an early, low-complexity boss, worth checking with a
+timed ablation rather than assumed.
+
+---
+
+## ADR-012 — Duplicate-frame detection is content-based, not index-based
+
+**Context.** A capture backend can advance its own frame counter correctly while still
+handing back a stale buffer underneath — the index says the pipeline is healthy while the
+content says the world stood still for a frame. Checking only the index would miss
+exactly the failure mode most dangerous to a world model: a fake "nothing happened"
+transition that trains it to (mis)predict a frozen world.
+
+**Decision.** `perception.capture.IntegrityTracker` runs two independent checks: an index
+gap (a drop) and a content-checksum repeat (a duplicate), and treats a duplicate as the
+more dangerous of the two because it is silent where a drop is loud.
+
+**Reverses if.** A real capture backend proves the checksum check produces false
+positives at a rate that matters (e.g. a genuinely static boss-intro frame held for
+several real frames) -- at that point the check needs a per-context exemption, not
+removal.
+
+---
+
+## ADR-013 — Human demonstrations are normalized into the pruned action space at record time
+
+**Context.** The planner only ever searches the 56 legal actions from ADR-007. A
+demonstration recorded as free-form raw controller state (which can express illegal
+combinations no plan ever produces, like holding aim-lock while airborne with the stick
+centered) is not directly usable as an imitation-learning target for a policy that must
+itself only ever output legal actions.
+
+**Decision.** `control.human_input.Action.from_raw` applies the exact same precedence
+rules `Action.is_legal` enforces (dash cancels the shot, aim-lock roots the player, an
+idle lock is dropped, …) to raw device state before it is ever logged, so every recorded
+action is one the planner itself could have chosen. `tests/test_human_input.py` checks
+this holds over every combination of raw input flags, not just the common ones.
+
+**Reverses if.** The pruning rules in ADR-007 change (a charm alters what's physically
+possible) -- `from_raw` and `is_legal` must change together, or a demonstration recorded
+under the old rules silently stops being a legal imitation target under the new ones.

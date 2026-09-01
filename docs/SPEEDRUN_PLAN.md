@@ -129,6 +129,49 @@ You cannot save-state Cuphead, so you buy reproducibility a different way:
 - Keep a frozen `eval/` set of replays for offline regression testing of perception and
   world-model prediction, so most iterations never touch the game at all.
 
+### 2.5 The recorder, and why the first sessions are human, not agent
+
+Before any world model is worth training, you need demonstrations to train it on — and
+the cheapest, highest-quality first dataset is a human playing the game, not an agent
+flailing against it. An imitation-learning bootstrap (clone the human's `state → action`
+mapping) turns "random policy → death → death → death" into a policy that is already in
+the right neighborhood before RL or planning ever runs against the real game, which
+matters enormously here because real Cuphead attempts are expensive and slow relative to
+imagined ones.
+
+`scripts/record_session.py` is that capture tool. It wires together three pieces that
+otherwise only exist as abstractions:
+
+```
+perception.capture      ──►  IntegrityTracker  ──►  memory.replay.ReplayWriter
+control.human_input      ─────────────┘
+```
+
+- **Capture** (`perception.capture`) grabs frames with a monotonic index, wrapped in the
+  `IntegrityTracker` from §2.2/harness-frame-integrity — a duplicate or dropped frame
+  aborts the session rather than silently writing a corrupted replay.
+- **Human input** (`control.human_input`) reads the real controller and normalizes raw
+  stick/button state into the pruned action space via `Action.from_raw` — the same
+  precedence rules (dash cancels the shot, aim-lock roots the player, …) that
+  `is_legal()` enforces on the planner's side, so a recorded demonstration is always
+  something the planner itself could have chosen. That symmetry is what makes the
+  recording usable as an imitation target at all.
+- **The replay** (`memory.replay.ReplayWriter`) is what §2.4 describes, with frame-action
+  alignment checked fail-fast at the end of the session.
+
+It has two modes. `--synthetic` runs the entire pipeline against a deterministic
+in-process source with no game and no hardware — this is what CI and this repository's
+own test suite exercise, and it proves the plumbing works, nothing more. `--real` is the
+actual tool: point it at the running game and a connected controller, and it writes a
+replay under `data/replays/<run_id>/`. Run it a few dozen times across a boss's early
+attempts (including deaths — a death is exactly the state the world model most needs to
+learn to predict) before touching any training code.
+
+The companion tool, `scripts/latency_canary.py`, is the harness's own health check —
+§2.1's latency budget, measured and gated before you trust a single frame of anything it
+captures. Same two modes, same rule: `--synthetic` validates the measurement code against
+a known injected delay; only `--real` closes the phase-0 exit criterion.
+
 ---
 
 ## 3. Perception: hybrid symbolic + latent
@@ -239,6 +282,14 @@ latent L2.
 ### 4.4 Data flywheel
 
 - Seed with 5–15 hours of human play (yours), covering deaths — *especially* deaths.
+  `scripts/record_session.py --real` (§2.5) is the tool; run it in short sessions across
+  many attempts rather than one long one, so the buffer sees a wide spread of situations
+  rather than one long, increasingly fatigued run.
+- Do not go straight from human data to RL or planning against the live game. Clone the
+  human's `state → action` mapping first (behaviour cloning over the recorded replays) —
+  it turns "random policy, death, death, death" into a policy already in the right
+  neighborhood, and real Cuphead attempts are too slow and too expensive to spend finding
+  that neighborhood by random exploration. RL/MPC then refines from there.
 - Then agent play dominates: it is on-distribution for the policy you are improving,
   which is worth roughly 5× the same volume of human data.
 - Maintain a **prioritized replay buffer** weighted toward frames near `HIT_TAKEN`,
@@ -492,8 +543,20 @@ on a broken foundation.
 ## 12. What to do on day one
 
 1. `python3 scripts/preflight.py` — confirm the foundation is sound.
-2. Commit the baseline (the loop refuses to run on a dirty tree with no history).
-3. Run **one** supervised iteration: `python3 scripts/babysitter_loop.py --once --dry-run`,
-   read the plan it produces, then drop `--dry-run`.
-4. The first real task in the queue is `harness-capture-latency` — because §2 says so,
-   and because every other number in this document is meaningless until it passes.
+2. `python3 -m unittest discover -s tests` — the harness code (capture, actuation, the
+   replay format, the recorder, the latency measurement) already exists and is
+   synthetic-tested; confirm it's green on your machine before trusting it with the real
+   game.
+3. **On the machine actually running Cuphead**, with the game window visible and the
+   virtual pad wired up as its active controller:
+   `python3 scripts/latency_canary.py --real` — this is what actually closes
+   `harness-capture-latency`. A synthetic run only validates the measurement code (§2.5);
+   it is not evidence about your real capture pipeline.
+4. Record a first batch of human demonstrations:
+   `python3 scripts/record_session.py --real --boss goopy_le_grande --max-seconds 120`,
+   repeated across several attempts including deaths. This closes
+   `harness-human-demo-recorder` and starts the data flywheel in §4.4.
+5. Once both are VALIDATED, run **one** supervised loop iteration:
+   `python3 scripts/babysitter_loop.py --once --dry-run`, read the plan it produces, then
+   drop `--dry-run` — the next unblocked work is perception (§3): HUD templates, the pink
+   prior, and the event detector, all of which need the replays step 4 produced.

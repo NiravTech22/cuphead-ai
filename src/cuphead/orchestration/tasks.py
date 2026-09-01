@@ -19,6 +19,14 @@ OPEN_STATUSES = {"OPEN", "BLOCKED", "IN_PROGRESS", "IMPLEMENTED"}
 CLOSED_STATUSES = {"VALIDATED", "SUCCESSFUL", "ABANDONED"}
 ALL_STATUSES = OPEN_STATUSES | CLOSED_STATUSES | {"FAILED"}
 
+#: Statuses that mean "already claimed by a stage of the pipeline, do not
+#: reselect and do not recompute OPEN/BLOCKED for it." IN_PROGRESS is a worker
+#: mid-implementation; IMPLEMENTED is done and waiting on qa. Both must survive
+#: a `refresh_blocked` call untouched -- otherwise a loop restart between "the
+#: worker finished" and "qa ran" would silently bounce the task back to OPEN
+#: and hand it to a worker a second time instead of routing it to qa.
+IN_FLIGHT_STATUSES = {"IN_PROGRESS", "IMPLEMENTED"}
+
 #: Phase statuses that count as "this phase is done".
 PHASE_DONE = {"VALIDATED", "SUCCESSFUL"}
 
@@ -81,7 +89,7 @@ def unblocked(tasks: Iterable[Task], max_phase: Optional[int] = None) -> List[Ta
 
     ready: List[Task] = []
     for task in task_list:
-        if task.is_closed or task.status == "IN_PROGRESS":
+        if task.is_closed or task.status in IN_FLIGHT_STATUSES:
             continue
         if max_phase is not None and task.phase > max_phase:
             continue
@@ -122,7 +130,7 @@ def set_status(tasks_doc: Dict[str, Any], task_id: str, status: str, **extra: An
 
 
 def refresh_blocked(tasks_doc: Dict[str, Any], project_state: Dict[str, Any]) -> Dict[str, Any]:
-    """Recompute OPEN/BLOCKED for every task that is not closed or in progress.
+    """Recompute OPEN/BLOCKED for every task that is not closed or in-flight.
 
     Keeps the on-disk queue honest so a human reading ``tasks.json`` sees the same
     picture the loop does.
@@ -131,7 +139,7 @@ def refresh_blocked(tasks_doc: Dict[str, Any], project_state: Dict[str, Any]) ->
     ready = {t.id for t in unblocked(tasks, max_phase=highest_unlocked_phase(project_state))}
     for raw in tasks_doc.get("tasks", []):
         status = raw.get("status")
-        if status in CLOSED_STATUSES or status == "IN_PROGRESS":
+        if status in CLOSED_STATUSES or status in IN_FLIGHT_STATUSES:
             continue
         raw["status"] = "OPEN" if raw.get("id") in ready else "BLOCKED"
     return tasks_doc

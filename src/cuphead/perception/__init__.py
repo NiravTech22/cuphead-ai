@@ -24,3 +24,25 @@ change that blows the budget is a regression even if its accuracy improves.
 numpy/torch are imported lazily so the rest of the project stays importable on a
 bare machine.
 """
+
+from .capture import (
+    Frame,
+    FrameIntegrityError,
+    FrameSource,
+    IntegrityReport,
+    IntegrityTracker,
+    SyntheticFrameSource,
+    frame_checksum,
+    open_screen_source,
+)
+
+__all__ = [
+    "Frame",
+    "FrameIntegrityError",
+    "FrameSource",
+    "IntegrityReport",
+    "IntegrityTracker",
+    "SyntheticFrameSource",
+    "frame_checksum",
+    "open_screen_source",
+]

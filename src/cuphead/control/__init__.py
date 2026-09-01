@@ -15,20 +15,31 @@ from .action_space import (
     ACTION_REPEAT,
     DECISION_HZ,
     REFLEX_WHITELIST,
+    STICK_DEADZONE,
     Action,
     ReflexOverride,
     action_count,
     enumerate_actions,
     index_of,
 )
+from .actuator import Actuation, Actuator, RecordingActuator, open_vgamepad_actuator
+from .human_input import HumanInputSource, ScriptedInputSource, open_gamepad_source
 
 __all__ = [
     "ACTION_REPEAT",
     "DECISION_HZ",
     "REFLEX_WHITELIST",
+    "STICK_DEADZONE",
     "Action",
+    "Actuation",
+    "Actuator",
+    "HumanInputSource",
+    "RecordingActuator",
     "ReflexOverride",
+    "ScriptedInputSource",
     "action_count",
     "enumerate_actions",
     "index_of",
+    "open_gamepad_source",
+    "open_vgamepad_actuator",
 ]

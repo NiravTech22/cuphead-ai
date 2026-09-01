@@ -56,17 +56,21 @@ scripts/preflight.py       verify the foundation before anything autonomous runs
 scripts/babysitter_loop.py the outer orchestration loop
 
 src/cuphead/
-  perception/   capture, HUD templates, pink parry prior, latent encoder
+  perception/   capture + integrity checking (done), HUD templates, pink parry
+                prior, latent encoder (not yet)
   state/        symbolic + latent fused agent state
   events/       the discrete event vocabulary
   world_model/  latent dynamics, reward/value/hit heads
   planner/      CEM/MPPI MPC and the risk-constrained cost function
   policy/       60 Hz reflex layer and override arbitration
-  control/      virtual gamepad, action space, frame timing
+  control/      action space, virtual-gamepad actuation, human-input recording
   strategist/   LLM: loadout, phase priors, post-mortems, routing
-  memory/       episodic store and distilled lessons
-  evaluation/   metrics computed from event traces
+  memory/       replay format (done), episodic store and distilled lessons
+  evaluation/   metrics, the statistical gate, round-trip latency measurement
   orchestration/ state store, task queue, the statistical gate
+
+scripts/latency_canary.py   round-trip actuate->observe latency, gated
+scripts/record_session.py   record one attempt: synced frames + human input
 
 tests/                     stdlib unittest — no dependencies required
 ```
@@ -75,7 +79,7 @@ tests/                     stdlib unittest — no dependencies required
 
 ```bash
 python3 scripts/preflight.py                       # verify the foundation
-python3 -m unittest discover -s tests -v           # 95 tests, stdlib only
+python3 -m unittest discover -s tests -v           # 149 tests, stdlib only
 
 python3 scripts/babysitter_loop.py --once --dry-run   # show the plan, invoke nothing
 python3 scripts/babysitter_loop.py --once             # one supervised iteration
@@ -89,6 +93,31 @@ start on a broken foundation or a dirty working tree.
 The orchestration, control, event, planner and evaluation layers are **stdlib-only**, so
 everything above runs on a bare machine. `requirements.txt` covers the ML layers, which
 import numpy/torch lazily.
+
+## Recording your first session
+
+The phase-0 harness — capture with duplicate/drop detection, virtual-gamepad actuation,
+the frame-indexed replay format, and a human-demonstration recorder — is code-complete
+and self-tested. It is not yet *validated*: that requires running it against the real
+game, which this sandbox cannot do. On the machine actually running Cuphead:
+
+```bash
+# Sanity-check the pipeline with no game and no hardware:
+python3 scripts/latency_canary.py --synthetic
+python3 scripts/record_session.py --synthetic --frames 300
+
+# The real thing — game window visible, virtual pad wired up as its active controller:
+python3 scripts/latency_canary.py --real
+python3 scripts/record_session.py --real --boss goopy_le_grande \
+    --loadout weapon=peashooter,charm=smoke_bomb --max-seconds 120
+```
+
+`--real` needs `pip install -r requirements.txt` for `mss` (screen capture) and `evdev`
+(controller input and the virtual pad); both import lazily, so nothing else in the repo
+needs them installed. Record several dozen short attempts — including deaths — before
+touching any training code; see `docs/SPEEDRUN_PLAN.md` §2.5 and §4.4 for why the first
+data is human, not agent, and why a corrupted or misaligned recording is refused rather
+than silently written.
 
 ## The rules that make it work
 
