@@ -1,0 +1,15 @@
+# The orchestration, control, event, planner and evaluation layers are stdlib-only
+# by design -- `scripts/preflight.py` and the whole test suite run with none of this
+# installed. These are for the ML and capture layers, which import lazily.
+
+numpy>=1.26
+torch>=2.2                # latent dynamics, encoder, reflex heads
+opencv-python>=4.9        # HUD template matching, HSV pink mask, motion segmentation
+pillow>=10.2
+
+# Input and capture (Linux). Swap for vgamepad/ViGEm on Windows.
+evdev>=1.7; sys_platform == "linux"
+mss>=9.0                  # fallback screen capture; prefer an SHM/PipeWire path
+
+# Experiment tracking
+tensorboard>=2.16
