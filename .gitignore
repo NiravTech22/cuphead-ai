@@ -1,21 +1,25 @@
-# Secrets
-backend/.env
-
 # Python
-backend/.venv/
 __pycache__/
-*.pyc
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
 
-# Generated data (clips, downloads, transcripts, uploads)
-backend/clips/*
-!backend/clips/.gitkeep
-backend/data/
-backend/uploads/*
-!backend/uploads/.gitkeep
+# Captured gameplay: replays and frames are large and regenerable.
+# Manifests and experiment records are NOT ignored -- they are the evidence.
+data/replays/
+data/frames/
+*.mp4
+*.npz
+*.npy
 
-# Node / frontend
-frontend/node_modules/
-frontend/dist/
+# Model checkpoints
+checkpoints/
+*.pt
+*.ckpt
 
-# OS / editor
-.DS_Store
+# Local overrides
+.env
+.claude/settings.local.json

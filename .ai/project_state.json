@@ -1,0 +1,53 @@
+{
+  "project": "cuphead-ai",
+  "goal": "Autonomous Cuphead speedrun agent: latent world model + MPC planner + reflex control, with an LLM strategist for loadout, routing and failure analysis.",
+  "category": "All Bosses / Regular",
+  "schema_version": 1,
+  "current_phase": {
+    "id": 0,
+    "name": "harness",
+    "status": "IMPLEMENTED",
+    "exit_criterion": "Round-trip input->visible-response latency p50 < 30 ms and p99 < 50 ms, measured over 200 trials; zero duplicate or dropped frames over a 10-minute capture."
+  },
+  "phases": [
+    { "id": 0, "name": "harness", "status": "IMPLEMENTED", "exit_criterion": "latency p50 < 30ms, p99 < 50ms over 200 trials; 0 dup/dropped frames in 10 min capture" },
+    { "id": 1, "name": "perception", "status": "PENDING", "exit_criterion": "HP/card read 100% on 5000 held-out frames; event detector F1 >= 0.95 vs hand labels" },
+    { "id": 2, "name": "baseline_and_metrics", "status": "PENDING", "exit_criterion": "reproducible TTK distribution for target boss over 30 attempts, CI width < 15% of median" },
+    { "id": 3, "name": "reflex", "status": "PENDING", "exit_criterion": "parry conversion >= human median; reflex override precision >= 0.90" },
+    { "id": 4, "name": "world_model", "status": "PENDING", "exit_criterion": "hit-prediction AUC >= 0.85 at k=8 on held-out replays, per boss" },
+    { "id": 5, "name": "planner", "status": "PENDING", "exit_criterion": "median TTK beats phase-2 baseline, bootstrap CI excludes 0, n >= 30, planning latency <= 10 ms" },
+    { "id": 6, "name": "strategist", "status": "PENDING", "exit_criterion": ">= 3 LLM-proposed changes pass the statistical gate; calibration record established" },
+    { "id": 7, "name": "route", "status": "PENDING", "exit_criterion": "full-run assembly with per-segment gold splits tracked" }
+  ],
+  "target_boss": "goopy_le_grande",
+  "components": {
+    "perception": "NOT_STARTED",
+    "state_estimation": "NOT_STARTED",
+    "event_detection": "NOT_STARTED",
+    "world_model": "NOT_STARTED",
+    "planner": "NOT_STARTED",
+    "policy": "NOT_STARTED",
+    "control": "NOT_STARTED",
+    "strategist": "NOT_STARTED",
+    "memory": "NOT_STARTED",
+    "evaluation": "NOT_STARTED",
+    "orchestration": "IMPLEMENTED"
+  },
+  "latency_budget_ms": {
+    "capture": 4.0,
+    "encode": 5.0,
+    "reflex": 2.0,
+    "actuate": 2.0,
+    "plan": 10.0,
+    "total_reflex_path": 13.0
+  },
+  "gate": {
+    "min_attempts_per_arm": 30,
+    "bootstrap_samples": 10000,
+    "primary_metric": "median_ttk_s",
+    "death_rate_regression_bound": 0.05
+  },
+  "iteration": 0,
+  "last_updated": null,
+  "notes": "Nothing below phase 0 is meaningful until the harness passes its exit criterion. See docs/SPEEDRUN_PLAN.md section 2."
+}

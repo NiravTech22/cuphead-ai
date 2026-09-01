@@ -1,77 +1,99 @@
-# Verbatim
+# cuphead-ai
 
-A conversational, provenance-grounded quote-verification tool for public
-figures' on-the-record statements. Ask "did they really say that?" about a
-speech, interview, or press conference — Verbatim identifies the source
-(local RAG knowledge base first, web fallback), fetches and transcribes the
-footage, pinpoints the moment down to the spoken line, cuts a playable clip,
-and explains the statement with cited sources. It refuses to confirm a quote
-it can't ground in a transcript or citation — an honest "couldn't verify"
-beats a confident wrong answer.
+An autonomous Cuphead speedrunning agent: a learned latent world model with
+model-predictive control, a 60 Hz reflex layer, and an LLM strategist — built and
+driven by a self-orchestrating multi-agent development loop.
 
-> Formerly Scene Sense (a movie-scene finder). Pivoted 2026-08-14 to target
-> journalists, fact-checkers, and researchers who need to verify a claimed
-> public statement rather than relive a favorite movie line — same pipeline,
-> different domain. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the
-> rename.
+**Start here:** [`docs/SPEEDRUN_PLAN.md`](docs/SPEEDRUN_PLAN.md) — the full technical
+breakdown. [`CLAUDE.md`](CLAUDE.md) — the engineering rules the agents work under.
 
-**Scope.** Public figures' public, on-the-record statements only — speeches,
-interviews, press conferences, floor debates. Not for private individuals,
-not for surveillance, not for content someone hasn't already put on the
-record. Runs entirely locally: FastAPI backend, local LLM via Ollama
-(Anthropic/OpenAI switchable), faster-whisper on GPU, sentence-transformers
-KB on CPU.
+---
 
-## Run
+## The idea
 
-```bash
-cd backend
-.venv/bin/python -m app.main        # http://127.0.0.1:8000
+Cuphead is a boss-rush game made of deterministic pattern automata running at 60 Hz with
+4–8 frame reaction windows. That structure decomposes across three timescales, and the
+whole architecture follows from respecting it:
+
+| Timescale | Component | Rate | Job |
+|---|---|---|---|
+| Reflex | distilled reactive policy | 60 Hz | parry windows, i-frame dashes |
+| Tactical | world model + MPC planner | 15 Hz | positioning, DPS uptime, ~1 s lookahead |
+| Strategic | LLM strategist | offline | loadout, route, phase priors, post-mortems |
+
+**The LLM is never in the control loop.** The world model never tries to hit a 5-frame
+parry. The reflex layer never plans.
+
+The objective is not survival. Cuphead bosses change phase on HP thresholds rather than
+timers, so out-damaging a phase skips its attack patterns entirely — time saved is
+superlinear in damage dealt. The planner is a risk-constrained damage maximizer:
+
+```
+J = Σ γ^t [ dps_uptime(z_t, a_t) − λ(hp, phase) · P_hit(z_t, a_t) ]
 ```
 
-Configuration via `backend/.env` (see `.env.example`). `LLM_PROVIDER=ollama`
-is the default; the KB, preference engine, and content filter
-(`blocked_terms.txt`) are always active.
+## Layout
 
-## Knowledge base
+```
+CLAUDE.md                  engineering rules the agents work under
+docs/SPEEDRUN_PLAN.md      the full technical breakdown (§1–§12)
+docs/DECISIONS.md          architecture decision record
 
-```bash
-# ~30 well-documented public statements, no key needed:
-.venv/bin/python -m app.knowledge.seed
+.claude/agents/            six agent definitions
+.ai/                       persistent project state, task queue, failures
+experiments/               experiment records — a run with no record did not happen
 
-# your own structured events (JSON) — see the module docstring for the shape:
-.venv/bin/python -m app.knowledge.ingest_events /path/to/events.json
+scripts/preflight.py       verify the foundation before anything autonomous runs
+scripts/babysitter_loop.py the outer orchestration loop
 
-# your own transcripts (.srt of speeches/interviews/press conferences):
-.venv/bin/python -m app.knowledge.ingest_subtitles /path/to/srts
+src/cuphead/
+  perception/   capture, HUD templates, pink parry prior, latent encoder
+  state/        symbolic + latent fused agent state
+  events/       the discrete event vocabulary
+  world_model/  latent dynamics, reward/value/hit heads
+  planner/      CEM/MPPI MPC and the risk-constrained cost function
+  policy/       60 Hz reflex layer and override arbitration
+  control/      virtual gamepad, action space, frame timing
+  strategist/   LLM: loadout, phase priors, post-mortems, routing
+  memory/       episodic store and distilled lessons
+  evaluation/   metrics computed from event traces
+  orchestration/ state store, task queue, the statistical gate
+
+tests/                     stdlib unittest — no dependencies required
 ```
 
-## Engagement Layer (added 2026-07-15)
+## Running it
 
-A demo-ready layer over the existing pipeline — all additive, no retrieval
-or theme changes:
+```bash
+python3 scripts/preflight.py                       # verify the foundation
+python3 -m unittest discover -s tests -v           # 95 tests, stdlib only
 
-- **Hero input** — enlarged focal input under the headline with cycling
-  example placeholders and an accent-derived focus glow.
-- **Featured Statements** — a rail of real, cache-derived statement previews
-  (`app/featured.py` + `python -m app.generate_featured_assets`); hover
-  plays a 3-second muted loop; click opens a preview overlay whose "Get
-  this clip" button submits the canonical query through the normal loop.
-  Starts empty after the pivot — populate it by asking a few real
-  verification questions, then adding the resulting clip_ids to
-  `app/featured.py`'s `CURATED` list.
-- **Modes** — Find Statement / Analyze Context / Extract Metadata: prompt and
-  render variations over the unchanged retrieval loop.
-- **Returning-user greeting + Recent Quests** — localStorage-only
-  personalization; recent successful queries resubmit as fresh queries.
-- **Cinematic feedback** — film-reel loading stepper, conditional
-  "Clip found in X.Xs" / "⚡ cached" badge (never shown on slow runs).
+python3 scripts/babysitter_loop.py --once --dry-run   # show the plan, invoke nothing
+python3 scripts/babysitter_loop.py --once             # one supervised iteration
+python3 scripts/babysitter_loop.py --max-iterations 20 --max-budget-usd 25
+```
 
-Documentation: [docs/CHANGELOG.md](docs/CHANGELOG.md) ·
-[docs/DECISIONS.md](docs/DECISIONS.md) ·
-[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+`preflight.py` checks the state documents, agent frontmatter, task graph, git baseline,
+the `claude` CLI and its flags, and the test suite. The loop runs it first and refuses to
+start on a broken foundation or a dirty working tree.
 
-**Privacy.** All personalization is local: visit count, recent quests, and
-profile live in the browser's localStorage; taste profiles live in
-`backend/data/preferences.json`. Nothing is sent to any server beyond your
-own backend.
+The orchestration, control, event, planner and evaluation layers are **stdlib-only**, so
+everything above runs on a bare machine. `requirements.txt` covers the ML layers, which
+import numpy/torch lazily.
+
+## The rules that make it work
+
+Three, and they are all in `CLAUDE.md`:
+
+1. **IMPLEMENTED → VALIDATED → SUCCESSFUL.** Code existing is not evidence of anything.
+   Only the `qa` agent moves a verdict, and only on measurements.
+2. **The statistical gate.** n ≥ 30 per arm, median TTK improves, a 10 000-sample
+   bootstrap CI on the difference excludes zero, death rate does not regress, the
+   stalling detector does not fire, latency stays in budget.
+3. **The strategist proposes; the evaluation harness disposes.** Every LLM suggestion is
+   a typed hypothesis carrying a numeric prediction it gets scored on.
+
+## Scope
+
+Single-player, offline, locally-run game on a legitimately owned copy. No online
+component; no other player is affected.

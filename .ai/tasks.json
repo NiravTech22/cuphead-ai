@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "harness-capture-latency",
+      "title": "Measure and bound end-to-end input->response latency",
+      "layer": "control",
+      "owner": "architect",
+      "phase": 0,
+      "priority": 100,
+      "depends_on": [],
+      "status": "OPEN",
+      "acceptance": "scripts/latency_canary.py reports p50 < 30 ms and p99 < 50 ms over 200 actuate->observe trials, written to experiments/ as a JSON record.",
+      "notes": "Every other number in the project is meaningless until this passes. See docs/SPEEDRUN_PLAN.md section 2.1."
+    },
+    {
+      "id": "harness-frame-integrity",
+      "title": "Duplicate and dropped frame detection in the capture ring buffer",
+      "layer": "perception",
+      "owner": "data",
+      "phase": 0,
+      "priority": 95,
+      "depends_on": [],
+      "status": "OPEN",
+      "acceptance": "A 10-minute capture reports zero duplicate and zero dropped frames via monotonic frame counters; the detector is unit-tested against a synthetic stream with injected gaps and repeats."
+    },
+    {
+      "id": "harness-replay-format",
+      "title": "Replay record format with frame-indexed action log",
+      "layer": "orchestration",
+      "owner": "data",
+      "phase": 0,
+      "priority": 90,
+      "depends_on": [
+        "harness-frame-integrity"
+      ],
+      "status": "BLOCKED",
+      "acceptance": "Round-trip write/read of a 1000-frame replay preserves frames, frame-indexed actions, events, HUD ground truth, outcome, loadout and game build with 0 differences; the loader raises on a 1-frame action misalignment injected by the test."
+    },
+    {
+      "id": "perception-hud-templates",
+      "title": "HUD template reader for HP, super cards and weapon",
+      "layer": "perception",
+      "owner": "vision",
+      "phase": 1,
+      "priority": 85,
+      "depends_on": [
+        "harness-replay-format"
+      ],
+      "status": "BLOCKED",
+      "acceptance": "100% exact match on the 5000-frame held-out HUD fixture set, reported per boss; runtime under 1 ms per frame."
+    },
+    {
+      "id": "perception-pink-prior",
+      "title": "Pink parryable-object mask via HSV threshold",
+      "layer": "perception",
+      "owner": "vision",
+      "phase": 1,
+      "priority": 84,
+      "depends_on": [
+        "harness-replay-format"
+      ],
+      "status": "BLOCKED",
+      "acceptance": "Precision >= 0.95 and recall >= 0.90 against hand-labelled parryable objects on the fixture set; runtime under 1 ms per frame."
+    },
+    {
+      "id": "perception-event-detector",
+      "title": "Symbolic event detector producing the discrete event trace",
+      "layer": "events",
+      "owner": "vision",
+      "phase": 1,
+      "priority": 80,
+      "depends_on": [
+        "perception-hud-templates"
+      ],
+      "status": "BLOCKED",
+      "acceptance": "F1 >= 0.95 against hand-labelled event traces across at least 3 bosses, reported per boss and per event class."
+    },
+    {
+      "id": "eval-harness",
+      "title": "Evaluation harness with the statistical gate",
+      "layer": "evaluation",
+      "owner": "qa",
+      "phase": 2,
+      "priority": 78,
+      "depends_on": [
+        "perception-event-detector"
+      ],
+      "status": "BLOCKED",
+      "acceptance": "Given two arms of >= 30 attempts, reports median TTK, p10, death rate, DPS uptime, parry conversion, and a 10000-sample bootstrap CI on the difference in medians; unit-tested against synthetic distributions with known separation."
+    },
+    {
+      "id": "wm-hit-prediction",
+      "title": "Latent dynamics with a hit-probability head",
+      "layer": "world_model",
+      "owner": "world-model",
+      "phase": 4,
+      "priority": 70,
+      "depends_on": [
+        "eval-harness"
+      ],
+      "status": "BLOCKED",
+      "acceptance": "Hit-prediction AUC >= 0.85 at k=8 steps on held-out replays, reported per boss, with the experiment record written to experiments/."
+    },
+    {
+      "id": "planner-cem",
+      "title": "CEM planner over latent rollouts with the risk-constrained cost",
+      "layer": "planner",
+      "owner": "world-model",
+      "phase": 5,
+      "priority": 65,
+      "depends_on": [
+        "wm-hit-prediction"
+      ],
+      "status": "BLOCKED",
+      "acceptance": "Median TTK beats the phase-2 baseline with bootstrap CI excluding zero at n >= 30, planning latency p99 <= 10 ms, and the stalling detector does not fire."
+    }
+  ]
+}

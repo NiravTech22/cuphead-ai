@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "agents": {
+    "architect": {
+      "state": "IDLE",
+      "current_task": null,
+      "last_verdict": null,
+      "consecutive_failures": 0
+    },
+    "vision": {
+      "state": "IDLE",
+      "current_task": null,
+      "last_verdict": null,
+      "consecutive_failures": 0
+    },
+    "world-model": {
+      "state": "IDLE",
+      "current_task": null,
+      "last_verdict": null,
+      "consecutive_failures": 0
+    },
+    "data": {
+      "state": "IDLE",
+      "current_task": null,
+      "last_verdict": null,
+      "consecutive_failures": 0
+    },
+    "qa": {
+      "state": "IDLE",
+      "current_task": null,
+      "last_verdict": null,
+      "consecutive_failures": 0
+    },
+    "babysitter": {
+      "state": "IDLE",
+      "current_task": null,
+      "last_verdict": null,
+      "consecutive_failures": 0
+    }
+  },
+  "loop": {
+    "running": false,
+    "iteration": 0,
+    "started_at": null,
+    "last_iteration_at": null,
+    "halt_reason": null
+  }
+}
