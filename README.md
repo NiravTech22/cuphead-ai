@@ -3,7 +3,7 @@
 
 
 An autonomous Cuphead speedrunning agent: a learned latent world model with
-model-predictive control, a 60 Hz reflex layer, and an LLM strategist — built and
+model-predictive control, a 60 Hz reflex layer, and an LLM strategist; built and
 driven by a self-orchestrating multi-agent development loop.
 
 
