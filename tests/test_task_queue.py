@@ -56,6 +56,13 @@ class TestSelection(unittest.TestCase):
         tasks = load_tasks({"tasks": [task("a", status="IN_PROGRESS"), task("b")]})
         self.assertEqual([t.id for t in unblocked(tasks)], ["b"])
 
+    def test_implemented_tasks_are_not_reselected(self):
+        """IMPLEMENTED means done and waiting on qa -- not "hand to a worker
+        again." Regression test for a bug where a loop restart between the
+        worker finishing and qa running would silently re-dispatch the task."""
+        tasks = load_tasks({"tasks": [task("a", status="IMPLEMENTED"), task("b")]})
+        self.assertEqual([t.id for t in unblocked(tasks)], ["b"])
+
 
 class TestPhaseOrder(unittest.TestCase):
     def test_highest_unlocked_phase_is_the_first_unfinished(self):
@@ -98,18 +105,49 @@ class TestMutation(unittest.TestCase):
         refresh_blocked(doc, state("PENDING"))
         self.assertEqual(doc["tasks"][0]["status"], "VALIDATED")
 
+    def test_refresh_blocked_leaves_implemented_tasks_alone(self):
+        """A task awaiting qa must survive refresh_blocked untouched, or a
+        loop restart mid-pipeline silently reverts it to OPEN and it gets
+        re-implemented instead of validated."""
+        doc = {"tasks": [task("a", status="IMPLEMENTED")]}
+        refresh_blocked(doc, state("PENDING"))
+        self.assertEqual(doc["tasks"][0]["status"], "IMPLEMENTED")
+
+    def test_refresh_blocked_leaves_in_progress_tasks_alone(self):
+        doc = {"tasks": [task("a", status="IN_PROGRESS")]}
+        refresh_blocked(doc, state("PENDING"))
+        self.assertEqual(doc["tasks"][0]["status"], "IN_PROGRESS")
+
 
 class TestShippedQueue(unittest.TestCase):
     """The checked-in queue must actually be runnable."""
 
-    def test_next_task_is_the_harness_latency_canary(self):
+    def _load(self):
         import json
 
         tasks_doc = json.loads((REPO / ".ai" / "tasks.json").read_text())
         project = json.loads((REPO / ".ai" / "project_state.json").read_text())
-        nxt = select_next(tasks_doc, project)
-        self.assertIsNotNone(nxt)
-        self.assertEqual(nxt.id, "harness-capture-latency")
+        return tasks_doc, project
+
+    def test_no_task_is_selectable_while_all_phase_0_harness_work_awaits_qa(self):
+        """As shipped, every phase-0 harness task is IMPLEMENTED (code done,
+        awaiting qa) and nothing downstream is unblocked yet -- so the queue
+        correctly has no work for a worker to pick up right now. This is the
+        real current state, not a bug: the next actor is qa, not a worker."""
+        tasks_doc, project = self._load()
+        self.assertIsNone(select_next(tasks_doc, project))
+
+    def test_every_phase_0_harness_task_is_at_least_implemented(self):
+        tasks_doc, _ = self._load()
+        harness_ids = {
+            "harness-capture-latency",
+            "harness-frame-integrity",
+            "harness-replay-format",
+            "harness-human-demo-recorder",
+        }
+        by_id = {t["id"]: t["status"] for t in tasks_doc["tasks"]}
+        for tid in harness_ids:
+            self.assertIn(by_id[tid], ("IMPLEMENTED", "VALIDATED", "SUCCESSFUL"), tid)
 
 
 if __name__ == "__main__":

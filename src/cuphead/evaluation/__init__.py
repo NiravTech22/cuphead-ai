@@ -8,6 +8,24 @@ offline against frozen replays at no cost. The statistical gate itself lives in
 dependency exists.
 """
 
+from .latency import (
+    LatencyReport,
+    LatencyTimeoutError,
+    measure_many,
+    measure_once,
+    percentile,
+    synthetic_round_trip,
+)
 from .metrics import AttemptMetrics, aggregate, per_boss
 
-__all__ = ["AttemptMetrics", "aggregate", "per_boss"]
+__all__ = [
+    "AttemptMetrics",
+    "LatencyReport",
+    "LatencyTimeoutError",
+    "aggregate",
+    "measure_many",
+    "measure_once",
+    "per_boss",
+    "percentile",
+    "synthetic_round_trip",
+]

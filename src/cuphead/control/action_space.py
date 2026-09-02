@@ -11,6 +11,7 @@ An action is a *held button state* for the duration of one decision window
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import List, Tuple
@@ -18,6 +19,10 @@ from typing import List, Tuple
 MOVE = ("none", "left", "right")
 VERT = ("none", "jump", "duck")
 AIM8 = ("n", "ne", "e", "se", "s", "sw", "w", "nw")
+
+#: Stick deflection below this magnitude reads as centered. Applies to both
+#: the raw human controller and any policy that outputs continuous sticks.
+STICK_DEADZONE = 0.35
 
 #: Frames of input held per planner decision.
 ACTION_REPEAT = 4
@@ -73,6 +78,68 @@ class Action:
             return False
         return True
 
+    @classmethod
+    def from_raw(
+        cls,
+        *,
+        stick_x: float = 0.0,
+        stick_y: float = 0.0,
+        jump: bool = False,
+        duck: bool = False,
+        dash: bool = False,
+        shoot: bool = False,
+        lock: bool = False,
+    ) -> "Action":
+        """Normalize raw controller/keyboard state into a legal ``Action``.
+
+        This is the recorder's half of the round trip that ``to_buttons`` is
+        the planner's half of: a human demonstration reads raw device state,
+        and it has to land on the same 56-action space the planner searches,
+        or the recorded actions are useless as imitation-learning targets.
+
+        Raw state can express things the pruned space forbids -- both
+        buttons held, the stick moved while locked -- so this applies the
+        same precedence a human intuitively expects and ``is_legal``
+        enforces, deterministically:
+
+        * ``duck`` beats ``jump`` when both are held (down overrides up).
+        * ``dash`` drops a simultaneous ``duck`` (the game reads it as an
+          air/ground dash, not a crouch).
+        * ``dash`` cancels ``shoot`` (dashing interrupts the shot).
+        * Holding ``lock`` while ``duck`` is held is not reachable, so
+          ``duck`` overrides ``lock`` off.
+        * Holding ``lock`` without ``shoot`` or ``dash`` is idle and is
+          dropped (mirrors ``is_legal``'s idle-lock rule).
+        * While locked, the stick is repurposed for aim (8-way) rather than
+          movement; while unlocked, it is quantized to left/right only.
+        """
+        vert = "duck" if duck else ("jump" if jump else "none")
+
+        if dash and vert == "duck":
+            vert = "none"
+        if dash:
+            shoot = False
+
+        if lock and vert == "duck":
+            lock = False
+
+        if lock and not (shoot or dash):
+            lock = False
+
+        if lock:
+            aim = _nearest_aim8(stick_x, stick_y)
+            move = "none"
+        else:
+            aim = "e"
+            if stick_x <= -STICK_DEADZONE:
+                move = "left"
+            elif stick_x >= STICK_DEADZONE:
+                move = "right"
+            else:
+                move = "none"
+
+        return cls(move=move, vert=vert, dash=dash, shoot=shoot, lock=lock, aim=aim)
+
     def to_buttons(self) -> dict:
         """Lower to the virtual-gamepad button/axis state."""
         dx = {"none": 0.0, "left": -1.0, "right": 1.0}[self.move]
@@ -87,6 +154,23 @@ class Action:
             "b": self.dash,
             "rt": self.lock,
         }
+
+
+_AIM8_ORDER = ("e", "ne", "n", "nw", "w", "sw", "s", "se")
+
+
+def _nearest_aim8(dx: float, dy: float) -> str:
+    """Quantize a continuous stick vector to the nearest of the 8 aim directions.
+
+    The inverse of ``_aim_vector``: a centered stick (below the deadzone)
+    defaults to due east rather than an arbitrary direction, since "aim
+    somewhere" is a worse default than "aim forward."
+    """
+    if math.hypot(dx, dy) < STICK_DEADZONE:
+        return "e"
+    angle = math.atan2(dy, dx)
+    step = round(angle / (math.pi / 4)) % 8
+    return _AIM8_ORDER[step]
 
 
 def _aim_vector(aim: str) -> Tuple[float, float]:

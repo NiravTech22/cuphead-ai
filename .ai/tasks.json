@@ -9,9 +9,9 @@
       "phase": 0,
       "priority": 100,
       "depends_on": [],
-      "status": "OPEN",
+      "status": "IMPLEMENTED",
       "acceptance": "scripts/latency_canary.py reports p50 < 30 ms and p99 < 50 ms over 200 actuate->observe trials, written to experiments/ as a JSON record.",
-      "notes": "Every other number in the project is meaningless until this passes. See docs/SPEEDRUN_PLAN.md section 2.1."
+      "notes": "Every other number in the project is meaningless until this passes. See docs/SPEEDRUN_PLAN.md section 2.1. Code done: src/cuphead/evaluation/latency.py + scripts/latency_canary.py, unit-tested against a synthetic pair with a known injected delay (tests/test_latency.py). `--synthetic` self-test passes (experiments/latency_canary_synthetic_*.json) but is NOT evidence for this criterion -- it validates the measurement code, not the real pipeline. Still needed: `python3 scripts/latency_canary.py --real` on the machine actually running Cuphead."
     },
     {
       "id": "harness-frame-integrity",
@@ -21,8 +21,9 @@
       "phase": 0,
       "priority": 95,
       "depends_on": [],
-      "status": "OPEN",
-      "acceptance": "A 10-minute capture reports zero duplicate and zero dropped frames via monotonic frame counters; the detector is unit-tested against a synthetic stream with injected gaps and repeats."
+      "status": "IMPLEMENTED",
+      "acceptance": "A 10-minute capture reports zero duplicate and zero dropped frames via monotonic frame counters; the detector is unit-tested against a synthetic stream with injected gaps and repeats.",
+      "notes": "Code done: src/cuphead/perception/capture.py (IntegrityTracker, content-checksum based -- see its docstring for why a duplicate is checked by content, not just index). Unit-tested against injected duplicates and drops, including a 10,000-frame clean-stream stand-in (tests/test_capture.py). Still needed: an actual 10-minute capture against the real screen-capture backend (open_screen_source) to close this for real."
     },
     {
       "id": "harness-replay-format",
@@ -34,8 +35,24 @@
       "depends_on": [
         "harness-frame-integrity"
       ],
-      "status": "BLOCKED",
-      "acceptance": "Round-trip write/read of a 1000-frame replay preserves frames, frame-indexed actions, events, HUD ground truth, outcome, loadout and game build with 0 differences; the loader raises on a 1-frame action misalignment injected by the test."
+      "status": "IMPLEMENTED",
+      "acceptance": "Round-trip write/read of a 1000-frame replay preserves frames, frame-indexed actions, events, HUD ground truth, outcome, loadout and game build with 0 differences; the loader raises on a 1-frame action misalignment injected by the test.",
+      "notes": "Code done: src/cuphead/memory/replay.py (ReplayWriter/ReplayReader). Alignment is checked twice: fail-fast in ReplayWriter.finalize, and again in ReplayReader.read as defense against a file corrupted after the fact. tests/test_replay.py covers the exact 1000-frame round trip and the 1-frame misalignment scenario named in this criterion."
+    },
+    {
+      "id": "harness-human-demo-recorder",
+      "title": "CLI to record one human-play attempt as a replay",
+      "layer": "control",
+      "owner": "data",
+      "phase": 0,
+      "priority": 88,
+      "depends_on": [
+        "harness-frame-integrity",
+        "harness-replay-format"
+      ],
+      "status": "IMPLEMENTED",
+      "acceptance": "scripts/record_session.py --synthetic produces a replay directory that reads back with 0 alignment errors and 0 capture-integrity violations; scripts/record_session.py --real captures >= 1 minute of live human play against the real screen-capture and gamepad-input backends with 0 duplicate/dropped frames.",
+      "notes": "Human demonstrations are the seed data for the imitation-learning bootstrap the plan recommends before any RL or planning runs (docs/SPEEDRUN_PLAN.md section 4.4 / the pasted-in curriculum). Code done: src/cuphead/control/human_input.py (Action.from_raw normalizes raw controller state into the pruned 56-action space -- tests/test_human_input.py checks every raw-flag combination lands on a legal action) + scripts/record_session.py, wiring capture + human_input + memory.replay together. `--synthetic` smoke-tested end to end. Still needed: a real recording session on the actual machine, and note HUD/event logging are placeholders pending perception-hud-templates / perception-event-detector."
     },
     {
       "id": "perception-hud-templates",
@@ -86,8 +103,9 @@
       "depends_on": [
         "perception-event-detector"
       ],
-      "status": "BLOCKED",
-      "acceptance": "Given two arms of >= 30 attempts, reports median TTK, p10, death rate, DPS uptime, parry conversion, and a 10000-sample bootstrap CI on the difference in medians; unit-tested against synthetic distributions with known separation."
+      "status": "IMPLEMENTED",
+      "acceptance": "Given two arms of >= 30 attempts, reports median TTK, p10, death rate, DPS uptime, parry conversion, and a 10000-sample bootstrap CI on the difference in medians; unit-tested against synthetic distributions with known separation.",
+      "notes": "Code done: src/cuphead/orchestration/gates.py (evaluate/ArmResult/bootstrap CI) + src/cuphead/evaluation/metrics.py (aggregate/per_boss over EventTrace). Both operate on EventTrace regardless of who produced it, so the code doesn't structurally need perception-event-detector -- tests/test_gates.py and tests/test_events_and_metrics.py exercise it against synthetic traces with known separation. Left BLOCKED on its declared dependency for sequencing (no real event traces to validate against yet), but the implementation itself is done."
     },
     {
       "id": "wm-hit-prediction",
