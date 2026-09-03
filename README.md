@@ -6,6 +6,8 @@ An autonomous Cuphead speedrunning agent: a learned latent world model with
 model-predictive control, a 60 Hz reflex layer, and an LLM strategist; built and
 driven by a self-orchestrating multi-agent development loop.
 
+The core insight i've identified from hours worth of gameplay: the overworld map navigation is largely deterministic: same paths, same NPC positions, same interactions. Streamers walking the map is essentially labeled data for "what's the optimal route." The boss fights are where the RNG lives mainly, and this is what the world model + MPC planner should handle online.
+
 
 <img width="1152" height="648" alt="cuphead1-1152x648" src="https://github.com/user-attachments/assets/b5e6a412-8c9d-46e0-8357-b4fc18344442" />
 
