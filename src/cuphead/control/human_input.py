@@ -14,10 +14,37 @@ is not learnable by a policy that only ever outputs legal actions.
 
 from __future__ import annotations
 
+import platform
+import threading
 from dataclasses import dataclass, field
-from typing import Iterator, List, Protocol, Sequence
+from typing import Any, Iterator, List, Protocol, Sequence
 
 from .action_space import Action
+
+
+def _normalize_axis(value: int, lo: int, hi: int) -> float:
+    """Map a raw axis reading in ``[lo, hi]`` onto ``[-1.0, 1.0]``."""
+    span = (hi - lo) or 1
+    return (2.0 * (value - lo) / span) - 1.0
+
+
+def _blank_raw_state() -> dict:
+    """The raw device state both backends fill in and hand to ``Action.from_raw``.
+
+    Shared deliberately: the two backends must produce demonstrations that are
+    interchangeable in the replay buffer, so they populate the *same* keys with
+    the same meaning (stick in [-1, 1], y positive = up) and differ only in how
+    they talk to the OS.
+    """
+    return {
+        "stick_x": 0.0,
+        "stick_y": 0.0,
+        "jump": False,
+        "duck": False,
+        "dash": False,
+        "shoot": False,
+        "lock": False,
+    }
 
 
 class HumanInputSource(Protocol):
@@ -58,7 +85,34 @@ class ScriptedInputSource:
         self._closed = True
 
 
-def open_gamepad_source(*, device_path: str | None = None) -> HumanInputSource:
+def open_gamepad_source(
+    *, device_path: str | None = None, backend: str | None = None
+) -> HumanInputSource:
+    """Open the real controller for the host platform.
+
+    Dispatches on ``platform.system()``: ``evdev`` on Linux, the ``inputs``
+    package on Windows. Both backends are lazily imported inside their own
+    factory, so importing this module costs nothing and needs neither package
+    on the platform that doesn't use it -- ``requirements.txt`` markers make
+    each one install-only on its own OS.
+
+    Whatever the backend, ``poll()`` returns an ``Action`` produced by
+    ``Action.from_raw``, so a demonstration recorded on Windows is the same
+    kind of imitation target as one recorded on Linux and the two can share a
+    replay buffer without a per-platform decoder.
+
+    ``backend`` overrides the platform sniff; it exists for diagnostics
+    (forcing a specific path on a machine that has both) and for tests.
+    """
+    backend = backend or ("windows" if platform.system() == "Windows" else "linux")
+    if backend == "windows":
+        return _open_inputs_gamepad_source()
+    if backend == "linux":
+        return _open_evdev_gamepad_source(device_path=device_path)
+    raise ValueError(f"unknown human-input backend {backend!r}; expected 'linux' or 'windows'")
+
+
+def _open_evdev_gamepad_source(*, device_path: str | None = None) -> HumanInputSource:
     """Real controller reading via ``evdev``, imported lazily.
 
     Maintains live button/axis state from device events and normalizes it
@@ -94,19 +148,7 @@ def open_gamepad_source(*, device_path: str | None = None) -> HumanInputSource:
             self._x_range = (info.min, info.max)
             info = self._dev.absinfo(ecodes.ABS_Y)
             self._y_range = (info.min, info.max)
-            self._raw = {
-                "stick_x": 0.0,
-                "stick_y": 0.0,
-                "jump": False,
-                "duck": False,
-                "dash": False,
-                "shoot": False,
-                "lock": False,
-            }
-
-        def _normalize_axis(self, value: int, lo: int, hi: int) -> float:
-            span = (hi - lo) or 1
-            return (2.0 * (value - lo) / span) - 1.0
+            self._raw = _blank_raw_state()
 
         def poll(self) -> Action:
             # Drain pending events without blocking; the last value for each
@@ -117,9 +159,9 @@ def open_gamepad_source(*, device_path: str | None = None) -> HumanInputSource:
                 if event is None:
                     break
                 if event.type == ecodes.EV_ABS and event.code == ecodes.ABS_X:
-                    self._raw["stick_x"] = self._normalize_axis(event.value, *self._x_range)
+                    self._raw["stick_x"] = _normalize_axis(event.value, *self._x_range)
                 elif event.type == ecodes.EV_ABS and event.code == ecodes.ABS_Y:
-                    self._raw["stick_y"] = -self._normalize_axis(event.value, *self._y_range)
+                    self._raw["stick_y"] = -_normalize_axis(event.value, *self._y_range)
                 elif event.type == ecodes.EV_KEY and event.code == ecodes.BTN_SOUTH:
                     self._raw["jump"] = bool(event.value)
                 elif event.type == ecodes.EV_KEY and event.code == ecodes.BTN_WEST:
@@ -134,3 +176,147 @@ def open_gamepad_source(*, device_path: str | None = None) -> HumanInputSource:
             self._dev.close()
 
     return _EvdevInputSource()
+
+
+# XInput reports both thumbstick axes as signed 16-bit. Unlike evdev, its Y is
+# already positive-up, so the Windows backend does *not* negate it -- both
+# backends hand `Action.from_raw` the same "y positive = up" convention.
+_XINPUT_AXIS_MIN = -32768
+_XINPUT_AXIS_MAX = 32767
+
+# Button map, kept deliberately identical to the evdev backend above so the two
+# platforms record the same physical button as the same raw flag. A divergence
+# here would be invisible in the loss curve and would quietly make Windows
+# demonstrations mislabelled relative to Linux ones in a shared buffer.
+_INPUTS_BUTTON_MAP = {
+    "BTN_SOUTH": "jump",
+    "BTN_WEST": "shoot",
+    "BTN_EAST": "dash",
+    "BTN_TR": "lock",
+}
+
+
+class _InputsInputSource:
+    """Real controller reading via the ``inputs`` package (Windows/XInput).
+
+    ``inputs``' ``gamepad.read()`` *blocks* until an event arrives, which a
+    fixed-rate recorder cannot tolerate: a blocking read inside the sampling
+    loop stalls the frame clock and slides actions onto later frames than the
+    ones they were made on. That is precisely the frame-action misalignment
+    that silently destroys world-model training. So the blocking read lives on
+    a daemon thread that keeps a live copy of held state, and ``poll()`` only
+    ever snapshots that copy -- non-blocking, same contract as the evdev path.
+
+    The device is injected rather than discovered so this class is testable
+    without hardware or the ``inputs`` package; ``_open_inputs_gamepad_source``
+    does the lazy import and discovery.
+    """
+
+    def __init__(self, device: Any, *, start_reader: bool = True) -> None:
+        self._device = device
+        self._raw = _blank_raw_state()
+        self._lock = threading.Lock()
+        self._closed = False
+        self._error: BaseException | None = None
+        self._thread: threading.Thread | None = None
+        if start_reader:
+            self._thread = threading.Thread(
+                target=self._read_loop, name="human-input-inputs", daemon=True
+            )
+            self._thread.start()
+
+    def _read_loop(self) -> None:
+        while not self._closed:
+            try:
+                events = self._device.read()
+            except BaseException as exc:  # unplugged, driver error, shutdown
+                if not self._closed:
+                    self._error = exc
+                return
+            for event in events or ():
+                self._apply(event)
+
+    def _apply(self, event: Any) -> None:
+        """Fold one ``inputs`` event into the live raw state.
+
+        ``inputs`` events carry ``ev_type`` ("Absolute"/"Key"/"Sync"), a string
+        ``code`` and an int ``state``. Anything unrecognised (triggers, sync,
+        rumble acks) is ignored rather than raising -- an unmapped button must
+        not kill a recording session mid-run.
+        """
+        ev_type = getattr(event, "ev_type", None)
+        code = getattr(event, "code", None)
+        state = getattr(event, "state", 0)
+
+        with self._lock:
+            if ev_type == "Absolute":
+                if code == "ABS_X":
+                    self._raw["stick_x"] = _normalize_axis(
+                        state, _XINPUT_AXIS_MIN, _XINPUT_AXIS_MAX
+                    )
+                elif code == "ABS_Y":
+                    self._raw["stick_y"] = _normalize_axis(
+                        state, _XINPUT_AXIS_MIN, _XINPUT_AXIS_MAX
+                    )
+                elif code == "ABS_HAT0X":
+                    # D-pad is digital: drive the stick to the rail directly.
+                    self._raw["stick_x"] = float(max(-1, min(1, state)))
+                elif code == "ABS_HAT0Y":
+                    # evdev hats are positive-down; inputs mirrors that, and the
+                    # raw contract is positive-up, hence the negation.
+                    self._raw["stick_y"] = -float(max(-1, min(1, state)))
+            elif ev_type == "Key":
+                flag = _INPUTS_BUTTON_MAP.get(code or "")
+                if flag is not None:
+                    self._raw[flag] = bool(state)
+                elif code == "BTN_DPAD_LEFT":
+                    self._raw["stick_x"] = -1.0 if state else 0.0
+                elif code == "BTN_DPAD_RIGHT":
+                    self._raw["stick_x"] = 1.0 if state else 0.0
+                elif code == "BTN_DPAD_UP":
+                    self._raw["stick_y"] = 1.0 if state else 0.0
+                elif code == "BTN_DPAD_DOWN":
+                    self._raw["stick_y"] = -1.0 if state else 0.0
+
+    def poll(self) -> Action:
+        if self._closed:
+            raise RuntimeError("poll() on a closed HumanInputSource")
+        if self._error is not None:
+            # Fail loudly. A dead reader thread would otherwise keep returning
+            # the last held state forever, writing a long tail of confidently
+            # wrong actions into the replay -- worse than no data at all.
+            raise RuntimeError(
+                "the Windows gamepad reader stopped; the recorded actions after this "
+                f"point would be stale: {self._error!r}"
+            ) from self._error
+        with self._lock:
+            snapshot = dict(self._raw)
+        return Action.from_raw(**snapshot)
+
+    def close(self) -> None:
+        self._closed = True
+        closer = getattr(self._device, "close", None)
+        if callable(closer):
+            closer()
+
+
+def _open_inputs_gamepad_source() -> HumanInputSource:
+    """Real controller reading via ``inputs``, imported lazily.
+
+    Like the evdev backend, the hardware path is not exercised in CI (no
+    controller, and the package is Windows-only). What *is* exercised is
+    ``_InputsInputSource``'s event folding and normalization, which is where
+    the mapping bugs would actually live.
+    """
+    try:
+        import inputs  # type: ignore[import-untyped]
+    except ImportError as exc:
+        raise RuntimeError(
+            "the `inputs` package is not installed. Run `pip install -r requirements.txt` "
+            "on the Windows machine actually running Cuphead before recording human input."
+        ) from exc
+
+    gamepads = list(getattr(inputs.devices, "gamepads", []))
+    if not gamepads:
+        raise RuntimeError("no gamepad found; connect a controller before recording")
+    return _InputsInputSource(gamepads[0])

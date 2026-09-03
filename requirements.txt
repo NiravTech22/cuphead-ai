@@ -7,8 +7,12 @@ torch>=2.2                # latent dynamics, encoder, reflex heads
 opencv-python>=4.9        # HUD template matching, HSV pink mask, motion segmentation
 pillow>=10.2
 
-# Input and capture (Linux). Swap for vgamepad/ViGEm on Windows.
+# Input and capture. Actuation still swaps to vgamepad/ViGEm on Windows; these
+# two are the *reading* side, selected at runtime by platform.system() in
+# control/human_input.py. Each is install-only on its own OS, and both are
+# lazily imported, so neither platform needs the other's package.
 evdev>=1.7; sys_platform == "linux"
+inputs; sys_platform == "win32"
 mss>=9.0                  # fallback screen capture; prefer an SHM/PipeWire path
 
 # Experiment tracking
