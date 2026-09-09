@@ -203,3 +203,47 @@ this holds over every combination of raw input flags, not just the common ones.
 **Reverses if.** The pruning rules in ADR-007 change (a charm alters what's physically
 possible) -- `from_raw` and `is_legal` must change together, or a demonstration recorded
 under the old rules silently stops being a legal imitation target under the new ones.
+
+---
+
+## ADR-014 — The virtual pad impersonates an Xbox 360 wired controller, exactly
+
+**Context.** `latency_canary.py --real` failed with "no visible response within 600
+frames of actuation" against a uinput device that was created successfully and visible in
+`/dev/input/`. Cuphead under Wine does not read evdev; `winebus.sys` enumerates Linux
+input devices through udev/SDL, classifies them, and only devices that classify as an
+Xbox-compatible gamepad are exposed through `xinput1_3`/`xinput1_4`. The previous device
+(4 buttons, `ABS_X`/`ABS_Y`, name `cuphead-ai-virtual-pad`, evdev's default
+vendor/product/version of 1) classified as a generic joystick and was never routed to the
+game. Nothing in the failure distinguishes this from a wrong capture region or a dead
+actuator, which is what made it expensive to diagnose.
+
+**Options considered.** (a) Fall back to keyboard input -- rejected: §2.3 chose the
+controller path for latency and unambiguous held state, and keyboard reintroduces the
+event-vs-state ambiguity the action space is built on. (b) Depend on an external
+emulation layer (`xboxdrv`, ViGEm-alike, an SDL virtual joystick) -- rejected: another
+runtime dependency and another process in the input path, for a signature we can declare
+ourselves in ~40 lines. (c) Declare the full Xbox 360 signature on our own uinput device.
+
+**Decision.** (c). `control.actuator.XBOX360_SIGNATURE` declares name, USB identity
+(`045e:028e`, `BUS_USB`, version `0x0110` -- the tuple SDL's built-in mapping database
+keys on) and the complete `xpad` capability set: both thumbsticks, both analog triggers
+as unsigned bytes, the D-pad hat, and the whole gamepad button block, including buttons
+the planner never presses. The signature is stdlib data lowered to evdev types only at
+open time, so `tests/test_actuator.py` can assert it and the write path with a fake
+`ecodes` and a fake device -- no `/dev/uinput`, no root, no evdev. Two behaviours ride
+along: a settle delay after device creation (winebus rescans on hotplug), and a neutral
+state published at open and at close so the game never sees an undefined axis or a stuck
+hold. The `Action`-based `Actuator` interface is unchanged; no caller moves.
+
+**Reverses if.** A future Wine/SDL release classifies gamepads from the HID descriptor
+alone and stops keying on the VID/PID -- at which point impersonating Microsoft's IDs
+buys nothing and an honest name/ID is preferable. Also reverses in the narrow sense if
+`--real` shows RB bound to something in the running Cuphead config: aim lock is currently
+held on both `BTN_TR` and `ABS_RZ` (the default Xbox binding), on the assumption that
+neither surface is bound to anything else; observing an unintended action on lock means
+dropping the `BTN_TR` write and keeping the trigger.
+
+**Status.** IMPLEMENTED, not VALIDATED. The signature tests are evidence that the
+device *declaration* is complete; only `scripts/latency_canary.py --real` on the machine
+running Cuphead is evidence that Wine actually routes it.

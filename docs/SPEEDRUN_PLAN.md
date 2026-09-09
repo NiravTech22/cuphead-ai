@@ -118,6 +118,52 @@ across the capture boundary.
 - Log every actuation with the frame index it was intended for. Training on
   misaligned `(s, a)` pairs is the most common silent killer of a world model.
 
+#### 2.3.1 Wine-specific requirement: the pad must *look like* an Xbox 360 controller
+
+This applies to `--real` mode on Linux only, and it is a hard prerequisite for both
+`scripts/latency_canary.py --real` and `scripts/record_session.py --real`.
+
+Cuphead under Wine/Proton never sees our evdev device. It calls XInput, which Wine
+synthesizes: `winebus.sys` enumerates Linux input devices through udev/SDL, decides which
+of them are game controllers, builds an HID descriptor for each, and only devices that
+classify as an Xbox-compatible gamepad are exposed to `xinput1_3`/`xinput1_4` and reach
+the game. A minimal uinput device — a handful of buttons plus `ABS_X`/`ABS_Y`, generic
+name, no USB IDs — is created successfully, appears in `/dev/input/`, and is *silently
+never routed to the game*. The observable symptom is the canary failing with
+`no visible response within 600 frames of actuation` while every synthetic test passes.
+
+So `control.actuator` declares the full Xbox 360 wired-pad signature
+(`XBOX360_SIGNATURE`), and three properties of it all have to hold at once:
+
+1. **Capabilities.** udev's `input_id` builtin tags a node `ID_INPUT_JOYSTICK` from
+   capabilities alone: an `ABS_X`/`ABS_Y` pair plus the `BTN_GAMEPAD` button block. The
+   device therefore declares both thumbsticks (`ABS_X/Y`, `ABS_RX/RY`, signed 16-bit),
+   both analog triggers (`ABS_Z`/`ABS_RZ`, unsigned byte, as `xpad` reports them), the
+   D-pad hat (`ABS_HAT0X/Y`, −1..1), and the complete face/shoulder/menu/thumb button
+   set — including buttons the planner never presses.
+2. **USB identity.** SDL composes its controller GUID from bustype + vendor + product +
+   version and maps a device to the game-controller API only when that GUID is in its
+   mapping database. `045e:028e` on `BUS_USB` is the Xbox 360 wired pad and is built in,
+   so it maps with no user configuration. evdev's `UInput` defaults (vendor = product =
+   version = 1) compose a GUID that matches nothing.
+3. **Name.** Wine's and SDL's fallback heuristics string-match the controller name, so
+   it carries `X-Box 360`. It is not cosmetic.
+
+Two operational consequences: **open the actuator before launching Cuphead** (winebus
+rescans on hotplug, and a Unity title enumerates XInput slots at startup), and allow the
+built-in settle delay after device creation (`UINPUT_SETTLE_SECONDS`) so udev and winebus
+have processed the hotplug before the first actuation — writing immediately produces the
+same "no response" signature as a misclassified pad.
+
+`tests/test_actuator.py` asserts the capability set, the USB identity and the write path
+For a normal game session, use `scripts/launch_with_vgamepad.py -- wine
+/path/to/Cuphead.exe`; it creates the pad, starts Wine only after it is ready,
+and closes it only when the launched game exits. For the canary, use
+`scripts/latency_canary.py --real --launch wine /path/to/Cuphead.exe` so the
+measurement drives that same launch-time pad.
+against a fake `ecodes`/device, so a regression is caught without hardware. That test is
+necessary but not sufficient: only `--real` proves Wine actually routed the pad.
+
 ### 2.4 Determinism and the replay log
 
 You cannot save-state Cuphead, so you buy reproducibility a different way:

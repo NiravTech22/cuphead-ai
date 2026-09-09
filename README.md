@@ -106,8 +106,13 @@ game, which this sandbox cannot do. On the machine actually running Cuphead:
 python3 scripts/latency_canary.py --synthetic
 python3 scripts/record_session.py --synthetic --frames 300
 
-# The real thing — game window visible, virtual pad wired up as its active controller:
-python3 scripts/latency_canary.py --real
+# Verify Wine sees the virtual Xbox pad: it must be created before Cuphead starts.
+python3 scripts/latency_canary.py --real --launch wine /path/to/Cuphead.exe
+
+# For a real game session, keep that virtual pad alive for the whole process.
+python3 scripts/launch_with_vgamepad.py -- wine /path/to/Cuphead.exe
+
+# Record a human demonstration while the game is open:
 python3 scripts/record_session.py --real --boss goopy_le_grande \
     --loadout weapon=peashooter,charm=smoke_bomb --max-seconds 120
 ```

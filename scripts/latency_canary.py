@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import subprocess
 import time
 from pathlib import Path
 
@@ -66,7 +67,10 @@ def sample_actions(n: int) -> list[Action]:
     return [actions[i % len(actions)] for i in range(n)]
 
 
-def run(mode: str, trials: int, p50_budget_ms: float, p99_budget_ms: float) -> dict:
+def run(
+    mode: str, trials: int, p50_budget_ms: float, p99_budget_ms: float,
+    launch_command: list[str] | None = None,
+) -> dict:
     actions = sample_actions(trials)
 
     if mode == "synthetic":
@@ -76,6 +80,12 @@ def run(mode: str, trials: int, p50_budget_ms: float, p99_budget_ms: float) -> d
         from cuphead.perception.capture import open_screen_source
 
         actuator = open_vgamepad_actuator()
+        if launch_command:
+            # Wine enumerates XInput devices at startup. Keep this uinput
+            # device alive while starting Cuphead; a pad created afterward
+            # often remains invisible to the game.
+            subprocess.Popen(launch_command)
+            time.sleep(2.0)
         source = open_screen_source()
 
     try:
@@ -85,7 +95,11 @@ def run(mode: str, trials: int, p50_budget_ms: float, p99_budget_ms: float) -> d
         print(
             "No visible response was detected. In --real mode this usually means the "
             "capture region doesn't cover the game window, or the virtual pad isn't the "
-            "game's active input device.",
+            "game's active input device.\n"
+            "On Linux/Wine, check the pad in that order: (1) `ls /dev/input/by-id/` shows "
+            "an Xbox-360-named node, (2) `udevadm info <node> | grep ID_INPUT_JOYSTICK` is "
+            "1, (3) the actuator was opened BEFORE Cuphead launched -- winebus only "
+            "rescans on hotplug. See SPEEDRUN_PLAN.md section 2.3.1.",
             file=sys.stderr,
         )
         raise SystemExit(2)
@@ -130,9 +144,22 @@ def main() -> int:
     ap.add_argument("--trials", type=int, default=DEFAULT_TRIALS)
     ap.add_argument("--p50-budget-ms", type=float, default=DEFAULT_P50_BUDGET_MS)
     ap.add_argument("--p99-budget-ms", type=float, default=DEFAULT_P99_BUDGET_MS)
+    ap.add_argument(
+        "--launch", nargs=argparse.REMAINDER, metavar="COMMAND",
+        help=("Real mode: launch Cuphead after the virtual pad exists, e.g. "
+              "--launch wine /path/to/Cuphead.exe. Put this option last."),
+    )
     args = ap.parse_args()
+    if args.launch and args.mode != "real":
+        ap.error("--launch is only valid with --real")
+    if args.launch == []:
+        ap.error("--launch needs a command after it")
 
-    record = run(args.mode, args.trials, args.p50_budget_ms, args.p99_budget_ms)
+
+    record = run(
+        args.mode, args.trials, args.p50_budget_ms, args.p99_budget_ms,
+        launch_command=args.launch or None,
+    )
     path = write_record(record)
 
     print(f"mode={record['mode']} n={record['n']}")

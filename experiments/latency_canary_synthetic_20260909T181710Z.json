@@ -1,0 +1,27 @@
+{
+  "task": "harness-capture-latency",
+  "mode": "synthetic",
+  "recorded_at": "2026-09-09T18:17:10+00:00",
+  "trials": 8,
+  "budget_ms": {
+    "p50": 30.0,
+    "p99": 50.0
+  },
+  "passed": true,
+  "n": 8,
+  "p50_ms": 16.666666666666664,
+  "p99_ms": 16.66666666666667,
+  "mean_ms": 16.666666666666664,
+  "max_ms": 16.66666666666667,
+  "samples_ms": [
+    16.66666666666667,
+    16.666666666666664,
+    16.666666666666664,
+    16.666666666666664,
+    16.666666666666664,
+    16.666666666666664,
+    16.666666666666664,
+    16.666666666666664
+  ],
+  "caveat": "Synthetic self-test only. Validates the measurement code against a known injected delay; is not evidence about the real capture/actuation pipeline. Re-run with --real on the machine running Cuphead before closing this task."
+}

@@ -22,7 +22,17 @@ from .action_space import (
     enumerate_actions,
     index_of,
 )
-from .actuator import Actuation, Actuator, RecordingActuator, open_vgamepad_actuator
+from .actuator import (
+    XBOX360_SIGNATURE,
+    Actuation,
+    Actuator,
+    AxisSpec,
+    DeviceSignature,
+    RecordingActuator,
+    build_capabilities,
+    build_uinput_kwargs,
+    open_vgamepad_actuator,
+)
 from .human_input import HumanInputSource, ScriptedInputSource, open_gamepad_source
 
 __all__ = [
@@ -30,14 +40,19 @@ __all__ = [
     "DECISION_HZ",
     "REFLEX_WHITELIST",
     "STICK_DEADZONE",
+    "XBOX360_SIGNATURE",
     "Action",
     "Actuation",
     "Actuator",
+    "AxisSpec",
+    "DeviceSignature",
     "HumanInputSource",
     "RecordingActuator",
     "ReflexOverride",
     "ScriptedInputSource",
     "action_count",
+    "build_capabilities",
+    "build_uinput_kwargs",
     "enumerate_actions",
     "index_of",
     "open_gamepad_source",
