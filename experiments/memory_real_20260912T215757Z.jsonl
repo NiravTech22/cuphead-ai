@@ -1,0 +1,3 @@
+{"status": "verifying", "scene": "forest_ready", "next_scene": null, "action": null, "reason": null, "reward": null, "prediction_error": null, "elapsed": null}
+{"status": "verifying", "scene": "forest_ready", "next_scene": null, "action": null, "reason": null, "reward": null, "prediction_error": null, "elapsed": null}
+{"status": "goal_reached", "scene": "forest_ready", "next_scene": null, "action": null, "reason": null, "reward": null, "prediction_error": null, "elapsed": null}

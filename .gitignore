@@ -23,3 +23,6 @@ checkpoints/
 # Local overrides
 .env
 .claude/settings.local.json
+
+# Persistent local latent banks (run evidence remains in experiments/).
+data/memory/

@@ -19,3 +19,7 @@ Acceptance is behavioural, never reconstructive:
 A model with poor reconstruction and strong hit prediction plans well. The reverse
 is never true.
 """
+
+from .sequence_model import build_frozen_t5_sequence_model
+
+from .knn_dynamics import Consequence, KNNDynamics

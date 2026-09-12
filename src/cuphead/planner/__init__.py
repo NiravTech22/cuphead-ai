@@ -25,3 +25,7 @@ __all__ = [
     "step_reward",
     "trajectory_value",
 ]
+
+from .memory_planner import MemoryDecision, MemoryPlanner
+
+__all__ += ['MemoryDecision', 'MemoryPlanner']

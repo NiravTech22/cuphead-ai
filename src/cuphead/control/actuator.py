@@ -318,6 +318,28 @@ class _UInputActuator:
         self._dev.syn()
         return Actuation(action=action, t_sent=time.perf_counter())
 
+    def send_buttons(self, state: Any) -> None:
+        """Apply a complete menu/overworld/combat input (Y-up project convention)."""
+        e = self._ecodes
+        self._dev.write(e.EV_ABS, e.ABS_X, _stick_value(state.stick_x))
+        self._dev.write(e.EV_ABS, e.ABS_Y, _stick_value(-state.stick_y))
+        bindings = {"BTN_SOUTH": state.a, "BTN_EAST": state.b,
+                    "BTN_WEST": state.x, "BTN_NORTH": state.y,
+                    "BTN_TR": state.rb, "BTN_START": state.start}
+        for name in XBOX360_SIGNATURE.keys:
+            self._dev.write(e.EV_KEY, getattr(e, name), int(bindings.get(name, False)))
+        self._dev.write(e.EV_ABS, e.ABS_RZ, 0)
+        self._dev.syn()
+
+    def send_menu(self, action: Any) -> None:
+        from .timed_input import ControlInput
+        self.send_buttons(ControlInput(action.name, stick_x=action.stick_x,
+                                       stick_y=action.stick_y, a=action.confirm,
+                                       start=action.skip, hold_frames=action.hold_frames))
+
+    def neutral_menu(self) -> None:
+        self.neutral()
+
     def close(self) -> None:
         self.neutral()
         self._dev.close()

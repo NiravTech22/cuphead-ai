@@ -79,6 +79,9 @@ tests/                     stdlib unittest — no dependencies required
 
 ## Running it
 
+An optional [frozen FLAN-T5 sequence model](docs/FROZEN_T5_SEQUENCING.md)
+adds causal multi-step latent prediction with trainable adapters for offline experiments.
+
 ```bash
 python3 scripts/preflight.py                       # verify the foundation
 python3 -m unittest discover -s tests -v           # 149 tests, stdlib only
@@ -142,3 +145,12 @@ Three, and they are all in `CLAUDE.md`:
 
 Single-player, offline, locally-run game on a legitimately owned copy. No online
 component; no other player is affected.
+
+## Frozen encoder and episodic consequence memory
+
+The [frozen V-JEPA 2.1 memory agent](docs/FROZEN_LATENT_MEMORY.md) adds CPU INT8
+pretrained encoding, 128×128 static-scene inputs, 384/768-dimensional latents,
+action-specific kNN consequence prediction, local untried-action exploration,
+and verified visual breadcrumb navigation. Run `python3 scripts/run_memory_agent.py --synthetic` for the dependency-free integration fixture or follow the linked
+guide for pretrained benchmarks and real Wine control. First-level combat
+completion is not yet validated.

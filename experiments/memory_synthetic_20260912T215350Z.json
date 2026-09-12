@@ -1,0 +1,10 @@
+{
+  "environment": "synthetic_fixture",
+  "cuphead_victory_verified": false,
+  "fixture_completed": true,
+  "steps": 12,
+  "deaths": 0,
+  "transitions": 15,
+  "cold_starts": 5,
+  "memory_retrievals": 3
+}

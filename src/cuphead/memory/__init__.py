@@ -34,3 +34,7 @@ __all__ = [
     "read_replay",
     "write_replay",
 ]
+
+from .latent_bank import Experience, LatentBank, Neighbor
+
+__all__ += ['Experience', 'LatentBank', 'Neighbor']

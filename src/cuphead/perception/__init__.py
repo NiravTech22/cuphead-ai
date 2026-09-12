@@ -46,3 +46,8 @@ __all__ = [
     "frame_checksum",
     "open_screen_source",
 ]
+
+from .frozen_jepa import FrozenJEPAEncoder
+from .latent_encoder import FrozenVisualEncoder, LatentEncoder
+
+__all__ += ['FrozenJEPAEncoder', 'FrozenVisualEncoder', 'LatentEncoder']

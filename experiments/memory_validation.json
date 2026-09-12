@@ -1,0 +1,24 @@
+{
+  "status": "components_and_navigation_validated_combat_incomplete",
+  "stdlib_suite": {
+    "tests": 223,
+    "skipped_optional": 8,
+    "result": "pass"
+  },
+  "full_pretrained_suite": {
+    "tests": 223,
+    "skipped": 0,
+    "result": "pass"
+  },
+  "static_checks": "ruff and git diff --check passed",
+  "live_navigation_evidence": "experiments/boot_to_forest_follies.json",
+  "encoder_384_evidence": "experiments/memory_benchmark_20260912T215351Z.json",
+  "encoder_768_evidence": "experiments/memory_benchmark_768.json",
+  "cuphead_victory_verified": false,
+  "remaining": [
+    "first-level combat policy and consequence data",
+    "HP2/HP1/death/victory detector calibration",
+    "15 Hz tactical and 60 Hz reflex latency requirements",
+    "statistical performance gate"
+  ]
+}

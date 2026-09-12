@@ -27,6 +27,10 @@ def _as_pil_image(payload: object) -> Any:
     except ImportError as exc:
         raise EncoderUnavailableError("Pillow is required for frozen visual encoding") from exc
 
+    if hasattr(payload, "payload"):
+        if getattr(payload, "width", None) and getattr(payload, "height", None):
+            return Image.frombytes("RGB", (payload.width, payload.height), payload.payload)
+        return _as_pil_image(payload.payload)
     if isinstance(payload, Image.Image):
         return payload.convert("RGB")
     if hasattr(payload, "rgb") and hasattr(payload, "width") and hasattr(payload, "height"):
@@ -120,7 +124,7 @@ class FrozenVisualEncoder:
 
     def encode(self, frame_or_payload: object) -> tuple[float, ...]:
         """Return a stable, L2-normalized frozen visual latent for one frame."""
-        image = _as_pil_image(getattr(frame_or_payload, "payload", frame_or_payload))
+        image = _as_pil_image(frame_or_payload)
         torch = self._torch
         with torch.inference_mode():
             if self._transformers:

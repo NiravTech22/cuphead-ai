@@ -1,0 +1,162 @@
+{
+  "goal": "forest_ready",
+  "match_margin": 0.012,
+  "landmarks": [
+    {
+      "label": "title",
+      "mode": "menu",
+      "image": "title.png",
+      "roi": [
+        0.12,
+        0.07,
+        0.88,
+        0.25
+      ],
+      "threshold": 0.08
+    },
+    {
+      "label": "start",
+      "mode": "menu",
+      "image": "start.png",
+      "roi": [
+        0.4,
+        0.39,
+        0.6,
+        0.55
+      ],
+      "threshold": 0.08
+    },
+    {
+      "label": "overworld",
+      "mode": "overworld",
+      "image": "overworld.png",
+      "roi": [
+        0.52,
+        0.57,
+        0.71,
+        0.88
+      ],
+      "threshold": 0.1
+    },
+    {
+      "label": "forest_entrance",
+      "mode": "menu",
+      "image": "forest_entrance.png",
+      "roi": [
+        0.35,
+        0.31,
+        0.66,
+        0.49
+      ],
+      "threshold": 0.08
+    },
+    {
+      "label": "forest_ready",
+      "mode": "combat",
+      "image": "forest_ready.png",
+      "roi": [
+        0.018,
+        0.93,
+        0.084,
+        0.975
+      ],
+      "threshold": 0.08,
+      "hp": 3,
+      "checks": [
+        {
+          "roi": [
+            0.15,
+            0.15,
+            0.9,
+            0.8
+          ],
+          "threshold": 0.1
+        }
+      ]
+    },
+    {
+      "label": "save_slot",
+      "mode": "menu",
+      "image": "save_slot.png",
+      "roi": [
+        0.3,
+        0.18,
+        0.7,
+        0.35
+      ],
+      "threshold": 0.08
+    },
+    {
+      "label": "character",
+      "mode": "menu",
+      "image": "character.png",
+      "roi": [
+        0.3,
+        0.18,
+        0.7,
+        0.35
+      ],
+      "threshold": 0.07
+    },
+    {
+      "label": "forest_marker",
+      "mode": "overworld",
+      "image": "forest_marker.png",
+      "roi": [
+        0.48,
+        0.365,
+        0.52,
+        0.425
+      ],
+      "threshold": 0.08,
+      "checks": [
+        {
+          "roi": [
+            0.2,
+            0.1,
+            0.4,
+            0.33
+          ],
+          "threshold": 0.13
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "source": "title",
+      "target": "start",
+      "action": "confirm"
+    },
+    {
+      "source": "start",
+      "target": "save_slot",
+      "action": "confirm"
+    },
+    {
+      "source": "overworld",
+      "target": "forest_marker",
+      "action": "northwest"
+    },
+    {
+      "source": "forest_entrance",
+      "target": "forest_ready",
+      "action": "confirm"
+    },
+    {
+      "source": "save_slot",
+      "target": "character",
+      "action": "confirm"
+    },
+    {
+      "source": "character",
+      "target": "overworld",
+      "action": "confirm"
+    },
+    {
+      "source": "forest_marker",
+      "target": "forest_entrance",
+      "action": "confirm"
+    }
+  ]
+}

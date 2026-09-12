@@ -44,6 +44,8 @@ class Frame:
     t_capture: float
     payload: object
     checksum: int
+    width: int | None = None
+    height: int | None = None
 
 
 def frame_checksum(payload: object) -> int:
@@ -239,6 +241,8 @@ def open_screen_source(*, monitor: int = 1, region: Optional[dict] = None) -> Fr
                 t_capture=time.perf_counter(),
                 payload=payload,
                 checksum=frame_checksum(payload),
+                width=shot.width,
+                height=shot.height,
             )
             self._index += 1
             return frame
