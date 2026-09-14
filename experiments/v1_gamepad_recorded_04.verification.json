@@ -1,0 +1,16 @@
+{
+  "path": "experiments/v1_gamepad_recorded_04.avi",
+  "decoded_frames": 425,
+  "timestamp_rows": 425,
+  "fps": 20.0,
+  "playback_seconds": 21.25,
+  "capture_seconds": 21.225006594999968,
+  "maximum_capture_gap_seconds": 0.06437758099991697,
+  "shape": [
+    572,
+    966,
+    3
+  ],
+  "last_frame_variance": 2978.8200171070944,
+  "all_frames_decoded": true
+}

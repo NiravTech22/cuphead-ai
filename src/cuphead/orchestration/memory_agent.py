@@ -26,6 +26,9 @@ class AgentStep:
     reward: float | None = None
     prediction_error: float | None = None
     elapsed: float | None = None
+    predicted_score: float | None = None
+    predicted_hit_probability: float | None = None
+    predicted_uncertainty: float | None = None
 
 
 class MemoryAgent:
@@ -210,5 +213,8 @@ class MemoryAgent:
                 reward,
                 error,
                 elapsed,
+                predicted_score=decision.score,
+                predicted_hit_probability=decision.consequence.hit_probability if decision.consequence else None,
+                predicted_uncertainty=decision.consequence.uncertainty if decision.consequence else None,
             )
         )

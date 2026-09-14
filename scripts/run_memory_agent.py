@@ -47,6 +47,7 @@ def main():
     )
     parser.add_argument("--bank", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--record-video", type=Path, help="record the game drawable to MJPG .avi with capture timestamps")
     parser.add_argument(
         "--controller", choices=["gamepad", "keyboard"], default="gamepad"
     )
@@ -63,6 +64,8 @@ def main():
         parser.error("--real requires --route with calibrated game screenshots")
     if args.launch and not args.real:
         parser.error("--launch is only supported with --real")
+    if args.record_video and (not args.real or args.record_video.suffix.lower() != ".avi"):
+        parser.error("--record-video requires --real and an .avi output path")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     mode = (
         "synthetic" if args.synthetic else ("benchmark" if args.benchmark else "real")
@@ -175,7 +178,7 @@ def main():
     )
     if bank.dimension != encoder.output_dim:
         raise ValueError("bank dimension differs from encoder")
-    source = actuator = child = None
+    source = actuator = child = recorder = None
     result = {
         "environment": "live_cuphead",
         "cuphead_victory_verified": False,
@@ -209,9 +212,14 @@ def main():
                 time.sleep(0.25)
         if actuator is None:
             actuator = X11KeyboardActuator()
+        if args.record_video:
+            from cuphead.perception.video_recorder import WindowVideoRecorder
+
+            recorder = WindowVideoRecorder(args.record_video)
         with log_path.open("w") as stream:
 
             def emit(row):
+                row = {"t_monotonic": time.perf_counter(), **row}
                 stream.write(json.dumps(row, allow_nan=False) + "\n")
                 stream.flush()
                 print(json.dumps(row), flush=True)
@@ -230,6 +238,8 @@ def main():
             deadline = time.perf_counter() + args.max_seconds
             unknown = 0
             for step in range(args.max_steps):
+                if recorder:
+                    recorder.check()
                 if time.perf_counter() >= deadline:
                     result["status"] = "time_budget"
                     break
@@ -272,12 +282,14 @@ def main():
         result["error"] = f"{type(exc).__name__}: {exc}"
     finally:
         cleanup_errors = []
-        for resource in (actuator, source):
+        for resource in (actuator, recorder, source):
             if resource is not None:
                 try:
                     resource.close()
                 except Exception as exc:  # noqa: BLE001 -- finish all remaining cleanup
                     cleanup_errors.append(f"{type(resource).__name__}: {exc}")
+        if recorder:
+            result["video"] = recorder.summary()
         if child and child.poll() is None:
             try:
                 child.terminate()

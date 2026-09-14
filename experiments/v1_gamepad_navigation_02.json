@@ -1,0 +1,20 @@
+{
+  "environment": "live_cuphead",
+  "cuphead_victory_verified": false,
+  "status": "goal_reached",
+  "encoder": {
+    "backend": "vjepa2.1:base:int8",
+    "checkpoint_sha256": "848a77c33cc9e6649ed2119c9bea1e2c569bcdab9539ff3e7c02ccc2959ddf4d",
+    "source_sha256": "b53eddda99fd6ecbd8427353652be847b1a8a5cd642cd0387684c7692c03f8ee",
+    "dimension": 384,
+    "clip_frames": 4,
+    "projection_seed": 17,
+    "pooling": "mean_tokens",
+    "preprocess": "rgb-square-imagenet-v1",
+    "low_size": 128,
+    "high_size": 256
+  },
+  "controller": "gamepad",
+  "steps": 95,
+  "transitions": 23
+}

@@ -1,0 +1,46 @@
+{
+  "schema": "gameplay_dataset_gate_v1",
+  "root": "/home/nirav/cuphead-ai/data/replays",
+  "training_capture_settings": {
+    "width": 256,
+    "height": 256,
+    "fps": 30,
+    "pixel_format": "RGB"
+  },
+  "dataset_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "total_frame_count": 0,
+  "frames_by_segment_type": {
+    "attempt": 0,
+    "menu": 0,
+    "idle": 0
+  },
+  "frames_by_outcome": {},
+  "full_target_attempts": 0,
+  "successful_clears": 0,
+  "clear_note": "A successful clear is desired if manually achievable; never inferred from level entry.",
+  "captured_wall_clock_seconds": 0,
+  "capture_span_seconds": 0,
+  "time_definition": "sum of per-segment last-first capture timestamps plus one nominal frame interval; excludes breaks",
+  "segments": [],
+  "excluded": [
+    {
+      "segment": "smoke_20260909",
+      "reason": "legacy or synthetic; not verified pixel/action data"
+    }
+  ],
+  "invalid_segments": [],
+  "coverage_passed": false,
+  "blocking_reasons": [
+    "only 0 eligible frames; need at least 100000",
+    "only 0 full forest_follies attempts; target five",
+    "need at least two witnessed full attempts ending in death",
+    "need at least 100 reviewed frames each of menu and idle",
+    "at least 70% of eligible frames must be gameplay attempts; idle/menu cannot pad the target",
+    "only 0 sample frames; need at least 200",
+    "encoder variance has not been measured on >=200 new dataset frames"
+  ],
+  "encoder_probe": null,
+  "training_allowed": false,
+  "data_collection_done": false,
+  "sample_count": 0
+}

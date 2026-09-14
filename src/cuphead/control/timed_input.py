@@ -47,7 +47,7 @@ NAVIGATION_INPUTS = (
     ControlInput("left", stick_x=-1, hold_frames=12),
     ControlInput("up", stick_y=1, hold_frames=12),
 )
-OVERWORLD_INPUTS = NAVIGATION_INPUTS + (
+OVERWORLD_INPUTS = tuple(a for a in NAVIGATION_INPUTS if not a.start) + (
     ControlInput("northwest", stick_x=-1, stick_y=1, hold_frames=8),
     ControlInput("northeast", stick_x=1, stick_y=1, hold_frames=8),
     ControlInput("southwest", stick_x=-1, stick_y=-1, hold_frames=8),

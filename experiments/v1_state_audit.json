@@ -1,0 +1,204 @@
+{
+  "cuphead_training_resumed": false,
+  "resumed_step": null,
+  "resumed_epoch": null,
+  "cuphead_training_loss": null,
+  "reason": "No Cuphead predictor training checkpoint or Phase 3 evaluation artifact found",
+  "checkpoint_inventory": [
+    "checkpoints/vjepa2_1_vitb_dist_vitG_384.pt"
+  ],
+  "upstream_pretraining_only": {
+    "path": "/home/nirav/cuphead-ai/checkpoints/vjepa2_1_vitb_dist_vitG_384.pt",
+    "bytes": 1664223428,
+    "keys": [
+      "encoder",
+      "predictor",
+      "opt",
+      "scaler",
+      "ema_encoder",
+      "epoch",
+      "loss",
+      "batch_size",
+      "world_size",
+      "lr"
+    ],
+    "epoch": 40,
+    "loss": 0.5920411388079325
+  },
+  "encoder_probe": {
+    "strict_load_succeeded": true,
+    "encoder": {
+      "backend": "vjepa2.1:base:int8",
+      "checkpoint_sha256": "848a77c33cc9e6649ed2119c9bea1e2c569bcdab9539ff3e7c02ccc2959ddf4d",
+      "source_sha256": "b53eddda99fd6ecbd8427353652be847b1a8a5cd642cd0387684c7692c03f8ee",
+      "dimension": 384,
+      "clip_frames": 4,
+      "projection_seed": 17,
+      "pooling": "mean_tokens",
+      "preprocess": "rgb-square-imagenet-v1",
+      "low_size": 128,
+      "high_size": 256
+    },
+    "samples": [
+      "data/landmarks/character.png",
+      "data/landmarks/forest_entrance.png",
+      "data/landmarks/forest_marker.png",
+      "data/landmarks/forest_ready.png",
+      "data/landmarks/overworld.png",
+      "data/landmarks/save_slot.png",
+      "data/landmarks/start.png",
+      "data/landmarks/title.png"
+    ],
+    "variance_definition": "mean across dimensions of population variance across independent screenshots, after output normalization",
+    "mean_output_variance": 0.00012801017021758887,
+    "min_dimension_variance": 4.559902911992686e-06,
+    "mean_norm": 1.0000000051652387,
+    "limitation": "8 calibration screenshots, mostly menus; not a combat collapse check at a training resume step"
+  },
+  "banks": [
+    {
+      "path": "data/memory/5d76288898d6fb46fb7feb3dc4c40c442239554adb2e527b982e5994bef60a4f.json",
+      "rows": 1,
+      "scopes": {
+        "title:image128": 1
+      },
+      "hits": 0,
+      "terminal": 0
+    },
+    {
+      "path": "data/memory/navigation.json",
+      "rows": 23,
+      "scopes": {
+        "title:image128": 5,
+        "start:image128": 4,
+        "save_slot:image128": 3,
+        "character:image128": 3,
+        "overworld:image128": 4,
+        "forest_marker:image128": 2,
+        "forest_entrance:image128": 2
+      },
+      "hits": 0,
+      "terminal": 0
+    }
+  ],
+  "navigation_sanity_probe": {
+    "predictor": "existing kNN consequence bank, not the untrained T5 adapters",
+    "train_rows": 16,
+    "heldout_rows": 7,
+    "supported_rows": 7,
+    "rows": [
+      {
+        "scope": "title:image128",
+        "predicted_cosine": 0.997424951844058,
+        "no_change_cosine": 0.9199925941880137,
+        "random_unit_cosine": -0.10424499690427767,
+        "predicted_mse": 1.3395785812885007e-05,
+        "no_change_mse": 0.0004167052726393101
+      },
+      {
+        "scope": "start:image128",
+        "predicted_cosine": 0.9978604139371863,
+        "no_change_cosine": 0.9759834532240765,
+        "random_unit_cosine": -0.002257196250333977,
+        "predicted_mse": 1.1175117281929765e-05,
+        "no_change_mse": 0.0001250861918368742
+      },
+      {
+        "scope": "save_slot:image128",
+        "predicted_cosine": 0.9982500757931416,
+        "no_change_cosine": 0.9955257202299259,
+        "random_unit_cosine": -0.027327245544317376,
+        "predicted_mse": 9.127461101385021e-06,
+        "no_change_mse": 2.3303540441225572e-05
+      },
+      {
+        "scope": "character:image128",
+        "predicted_cosine": 0.9943540931850444,
+        "no_change_cosine": 0.9338347349509137,
+        "random_unit_cosine": 0.08362993205439372,
+        "predicted_mse": 2.948228632668692e-05,
+        "no_change_mse": 0.0003446107709814761
+      },
+      {
+        "scope": "overworld:image128",
+        "predicted_cosine": 0.9944000180382359,
+        "no_change_cosine": 0.9892549417609534,
+        "random_unit_cosine": -0.04677317793027269,
+        "predicted_mse": 3.0567531364247945e-05,
+        "no_change_mse": 5.59638500576611e-05
+      },
+      {
+        "scope": "forest_marker:image128",
+        "predicted_cosine": 0.9979560767201499,
+        "no_change_cosine": 0.9750007922757731,
+        "random_unit_cosine": 0.009602010455250113,
+        "predicted_mse": 1.0637305153083195e-05,
+        "no_change_mse": 0.00013020420494207484
+      },
+      {
+        "scope": "forest_entrance:image128",
+        "predicted_cosine": 0.9977555235392147,
+        "no_change_cosine": 0.946932459835593,
+        "random_unit_cosine": 0.025169820646227237,
+        "predicted_mse": 1.1740159146470793e-05,
+        "no_change_mse": 0.0002763934313932033
+      }
+    ],
+    "means": {
+      "predicted_cosine": 0.9968573075795757,
+      "no_change_cosine": 0.9623606709236071,
+      "random_unit_cosine": -0.008885836210475808,
+      "predicted_mse": 1.6589378026669805e-05,
+      "no_change_mse": 0.00019603818032740359
+    },
+    "combat_training_gate_passed": false,
+    "limitation": "Small navigation-only probe; cannot validate combat predictions or replace the missing Phase 3 check"
+  },
+  "planner_checks": {
+    "signal": "predicted reward + predicted distance reduction to goal - 5 * hit_probability - 0.25 * uncertainty",
+    "synthetic_known_scenarios": [
+      {
+        "scenario": "avoid_observed_hit",
+        "expected": "duck",
+        "decision": {
+          "action": "duck",
+          "reason": "predicted_consequence",
+          "consequence": {
+            "next_state": [
+              0.0,
+              0.0
+            ],
+            "reward": 0.1,
+            "hit_probability": 0.0,
+            "terminal_probability": 0.0,
+            "uncertainty": 0.0,
+            "neighbors": 1
+          },
+          "score": 0.1
+        },
+        "passed": true
+      },
+      {
+        "scenario": "prefer_predicted_progress",
+        "expected": "left",
+        "decision": {
+          "action": "left",
+          "reason": "predicted_consequence",
+          "consequence": {
+            "next_state": [
+              1.0,
+              0.0
+            ],
+            "reward": 0.0,
+            "hit_probability": 0.0,
+            "terminal_probability": 0.0,
+            "uncertainty": 0.0,
+            "neighbors": 1
+          },
+          "score": 1.0
+        },
+        "passed": true
+      }
+    ]
+  }
+}

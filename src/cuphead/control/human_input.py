@@ -136,19 +136,31 @@ def _open_evdev_gamepad_source(*, device_path: str | None = None) -> HumanInputS
             return evdev.InputDevice(device_path)
         for path in evdev.list_devices():
             dev = evdev.InputDevice(path)
-            caps = dev.capabilities().get(ecodes.EV_ABS, [])
-            if any(code in (ecodes.ABS_X, ecodes.ABS_HAT0X) for code, _ in caps):
+            caps = dev.capabilities(absinfo=False)
+            if ecodes.BTN_GAMEPAD in caps.get(ecodes.EV_KEY, []):
                 return dev
+            dev.close()
         raise RuntimeError("no gamepad-like input device found; pass device_path explicitly")
 
     class _EvdevInputSource:
         def __init__(self) -> None:
             self._dev = _pick_device()
             info = self._dev.absinfo(ecodes.ABS_X)
-            self._x_range = (info.min, info.max)
+            self._x_range = (info.min, info.max) if info is not None else (-1, 1)
             info = self._dev.absinfo(ecodes.ABS_Y)
-            self._y_range = (info.min, info.max)
+            self._y_range = (info.min, info.max) if info is not None else (-1, 1)
             self._raw = _blank_raw_state()
+            # Preserve all physical controls, including menu/weapon/super inputs
+            # that the pruned combat Action representation intentionally omits.
+            self._physical = {"keys": {}, "axes": {}}
+            self._physical["keys"] = {str(k): 1 for k in self._dev.active_keys()}
+            for code, info in self._dev.capabilities(absinfo=True).get(ecodes.EV_ABS, []):
+                self._physical["axes"][str(code)] = info.value
+
+        def snapshot(self) -> dict:
+            return {"backend": "evdev", "device": self._dev.path,
+                    "keys": dict(self._physical["keys"]),
+                    "axes": dict(self._physical["axes"])}
 
         def poll(self) -> Action:
             # Drain pending events without blocking; the last value for each
@@ -158,18 +170,25 @@ def _open_evdev_gamepad_source(*, device_path: str | None = None) -> HumanInputS
                 event = self._dev.read_one()
                 if event is None:
                     break
-                if event.type == ecodes.EV_ABS and event.code == ecodes.ABS_X:
-                    self._raw["stick_x"] = _normalize_axis(event.value, *self._x_range)
-                elif event.type == ecodes.EV_ABS and event.code == ecodes.ABS_Y:
-                    self._raw["stick_y"] = -_normalize_axis(event.value, *self._y_range)
-                elif event.type == ecodes.EV_KEY and event.code == ecodes.BTN_SOUTH:
-                    self._raw["jump"] = bool(event.value)
-                elif event.type == ecodes.EV_KEY and event.code == ecodes.BTN_WEST:
-                    self._raw["shoot"] = bool(event.value)
-                elif event.type == ecodes.EV_KEY and event.code == ecodes.BTN_EAST:
-                    self._raw["dash"] = bool(event.value)
-                elif event.type == ecodes.EV_KEY and event.code == ecodes.BTN_TR:
-                    self._raw["lock"] = bool(event.value)
+                if event.type == ecodes.EV_SYN and event.code == ecodes.SYN_DROPPED:
+                    raise RuntimeError("evdev input events dropped; stop recording to avoid stale labels")
+                if event.type == ecodes.EV_KEY:
+                    self._physical["keys"][str(event.code)] = int(bool(event.value))
+                elif event.type == ecodes.EV_ABS:
+                    self._physical["axes"][str(event.code)] = event.value
+            axes, keys = self._physical["axes"], self._physical["keys"]
+            self._raw["stick_x"] = _normalize_axis(axes.get(str(ecodes.ABS_X), 0), *self._x_range)
+            self._raw["stick_y"] = -_normalize_axis(axes.get(str(ecodes.ABS_Y), 0), *self._y_range)
+            hat_x = axes.get(str(ecodes.ABS_HAT0X), 0)
+            hat_y = axes.get(str(ecodes.ABS_HAT0Y), 0)
+            if hat_x:
+                self._raw["stick_x"] = float(hat_x)
+            if hat_y:
+                self._raw["stick_y"] = -float(hat_y)
+            for code, flag in ((ecodes.BTN_SOUTH, "jump"), (ecodes.BTN_WEST, "shoot"),
+                               (ecodes.BTN_EAST, "dash"), (ecodes.BTN_TR, "lock")):
+                self._raw[flag] = bool(keys.get(str(code), 0))
+            self._raw["duck"] = self._raw["stick_y"] < -0.35
             return Action.from_raw(**self._raw)
 
         def close(self) -> None:
