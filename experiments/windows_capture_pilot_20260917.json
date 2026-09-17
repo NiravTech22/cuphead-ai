@@ -1,0 +1,21 @@
+{
+  "environment": "native_windows_cuphead",
+  "capture_backend": "dxcam 0.3.0",
+  "controller_backend": "vgamepad 0.1.0",
+  "controller_creation_verified": true,
+  "visible_controller_response_verified": true,
+  "run": "data/recordings/windows_pilot_20260917_02",
+  "frames_verified": 1628,
+  "capture_span_seconds": 82.99867030000314,
+  "measured_fps": 19.602723683633982,
+  "frame_indices_contiguous": true,
+  "timestamps_monotonic": true,
+  "action_timestamps_not_after_capture": true,
+  "all_images_valid_rgb256": true,
+  "retry_inputs": 2,
+  "stop_reason": "focus_lost",
+  "training_eligible": false,
+  "exclusion": "Co-op/player-two controller assignment visually observed; do not use for single-player training",
+  "training_performed": false,
+  "cuphead_victory_verified": false
+}

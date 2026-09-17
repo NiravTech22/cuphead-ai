@@ -1,0 +1,19 @@
+{
+  "status": "focus_lost",
+  "frames": 1273,
+  "policy": "untrained_seeded_exploration",
+  "retry_count": 1,
+  "seed": 17,
+  "training_performed": false,
+  "cuphead_victory_verified": false,
+  "labels_verified": false,
+  "resolution": [
+    256,
+    256
+  ],
+  "target_fps": 30,
+  "elapsed_seconds": 45.17389269999694,
+  "max_capture_gap_seconds": 0.13874040001246613,
+  "mean_capture_gap_seconds": 0.03550143938678362,
+  "action_semantics": "held controller report at capture; action_t is report publish timestamp"
+}
