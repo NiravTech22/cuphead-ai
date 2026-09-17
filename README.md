@@ -79,6 +79,48 @@ tests/                     stdlib unittest — no dependencies required
 
 ## Running it
 
+### Native Windows input and capture
+
+Install `python -m pip install -r requirements.txt`. The Windows-only dependencies
+include [vgamepad](https://github.com/yannbouteiller/vgamepad) (requires its
+ViGEmBus driver) and [DXcam](https://github.com/ra1nty/DXcam).
+Create the virtual controller before launching Cuphead so it can enumerate the pad:
+
+```powershell
+python scripts/launch_with_vgamepad.py -- "C:\GOG Games\Cuphead\Cuphead.exe"
+```
+
+`open_vgamepad_actuator()` selects vgamepad on Windows and evdev/uinput on Linux.
+Both support combat actions, timed button states, menu input, and neutral release.
+`open_screen_source()` selects DXcam on Windows and MSS elsewhere. Dependencies
+remain lazily imported, so hardware-free tests do not need either native library.
+
+The agent and session recorder use the primary monitor on Windows: run Cuphead
+fullscreen there, and use `--controller gamepad` / `--input-source gamepad`.
+Keyboard control/recording remains X11-only. Linux retains X11 window capture.
+Windows background video recording uses a separate MSS source, avoiding DXcam's
+shared camera instance for the agent's output.
+
+For custom capture, import `open_screen_source` from `cuphead.perception`:
+
+```python
+source = open_screen_source(backend="dxcam", monitor=1, device_idx=0,
+                            region={"left": 0, "top": 0, "width": 960, "height": 540})
+try:
+    frame = source.read()  # owned RGB bytes, dimensions, checksum, monotonic timestamp
+finally:
+    source.close()
+```
+
+DXcam monitor numbers start at 1 per GPU; crop coordinates are relative to that
+output. `backend="mss"` explicitly selects the fallback (desktop coordinates).
+DXcam waits for a fresh desktop frame and raises `TimeoutError` after two seconds
+(configurable with `timeout=`), including on a completely static desktop. Frame
+indices count delivered samples; they cannot establish whether the game dropped
+presentations. Native throughput and game response still require a live benchmark.
+
+### Existing workflows
+
 An optional [frozen FLAN-T5 sequence model](docs/FROZEN_T5_SEQUENCING.md)
 adds causal multi-step latent prediction with trainable adapters for offline experiments.
 

@@ -3,8 +3,21 @@
 from __future__ import annotations
 
 import time
+import platform
 
 from .capture import Frame, frame_checksum
+
+
+def open_game_source(title="Cuphead"):
+    """Use the primary desktop output on Windows, or the X11 drawable on Linux.
+
+    Windows callers should run the game fullscreen on the primary output.
+    For a specific output/crop use open_screen_source directly.
+    """
+    if platform.system() == "Windows":
+        from .capture import open_screen_source
+        return open_screen_source()
+    return X11WindowSource(title)
 
 
 class X11WindowSource:

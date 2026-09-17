@@ -78,10 +78,12 @@ def record(*, mode: str, root: Path, run_id: str, boss: str,
         inputs = ScriptedInputSource([actions[i % len(actions)] for i in range(budget)])
     else:
         from cuphead.control.human_input import open_gamepad_source
-        from cuphead.perception.window_capture import X11WindowSource
+        from cuphead.perception.window_capture import open_game_source
 
-        source = X11WindowSource()
+        source = open_game_source()
         try:
+            if input_source == "keyboard" and not hasattr(source, "window_id"):
+                raise ValueError("Windows recording requires --input-source gamepad; keyboard recording uses X11")
             inputs = (X11KeyboardSource(window_id=source.window_id) if input_source == "keyboard"
                       else open_gamepad_source(device_path=device_path))
         except BaseException:

@@ -35,6 +35,7 @@ from .capture import (
     frame_checksum,
     open_screen_source,
 )
+from .window_capture import open_game_source
 
 __all__ = [
     "Frame",
@@ -45,6 +46,7 @@ __all__ = [
     "SyntheticFrameSource",
     "frame_checksum",
     "open_screen_source",
+    "open_game_source",
 ]
 
 from .frozen_jepa import FrozenJEPAEncoder

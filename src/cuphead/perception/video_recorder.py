@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import json
+import platform
 import threading
 import time
 from pathlib import Path
 
 
 class WindowVideoRecorder:
-    """Record the X11 drawable, including while encoding/planning blocks.
+    """Record X11 on Linux or the primary Windows desktop while planning blocks.
 
-    Each thread owns its own X connection. AVI uses a fixed playback rate;
+    Each thread owns its capture source. AVI uses a fixed playback rate;
     the JSONL sidecar preserves actual capture times and missed deadlines.
     """
 
@@ -42,9 +43,15 @@ class WindowVideoRecorder:
         try:
             import cv2
             import numpy as np
-            from .window_capture import X11WindowSource
+            from .window_capture import open_game_source
 
-            source = X11WindowSource()
+            # DXcam caches cameras by output: do not share/release the agent's
+            # camera from this independent recorder thread.
+            if platform.system() == "Windows":
+                from .capture import open_screen_source
+                source = open_screen_source(backend="mss")
+            else:
+                source = open_game_source()
             first = source.read()
             writer = cv2.VideoWriter(str(self.path), cv2.VideoWriter_fourcc(*"MJPG"), self.fps,
                                      (first.width, first.height))

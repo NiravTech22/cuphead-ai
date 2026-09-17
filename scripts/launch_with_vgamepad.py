@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch Cuphead after creating the persistent Linux virtual Xbox controller.
+"""Launch Cuphead after creating a persistent Windows or Linux Xbox controller.
 
 Usage:
 

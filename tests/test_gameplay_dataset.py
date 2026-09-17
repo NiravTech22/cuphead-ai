@@ -252,7 +252,7 @@ class RecorderTests(unittest.TestCase):
             def close(self):
                 pass
         with tempfile.TemporaryDirectory() as tmp, patch(
-                "cuphead.perception.window_capture.X11WindowSource", Source), patch(
+                "cuphead.perception.window_capture.open_game_source", Source), patch(
                 "cuphead.control.human_input.open_gamepad_source", return_value=Input()):
             directory = self.module().record(mode="real", root=Path(tmp), run_id="idle", boss="forest",
                 loadout={}, game_build="test", fps=30, outcome="IDLE", frames=3, max_seconds=None,
@@ -297,7 +297,7 @@ class RecorderTests(unittest.TestCase):
         module = self.module()
         inputs = Input()
         with tempfile.TemporaryDirectory() as tmp, patch(
-                "cuphead.perception.window_capture.X11WindowSource", Source), patch.object(
+                "cuphead.perception.window_capture.open_game_source", Source), patch.object(
                 module, "X11KeyboardSource", return_value=inputs) as factory:
             directory = module.record(mode="real", root=Path(tmp), run_id="keys", boss="forest_follies",
                 loadout={}, game_build="test", fps=30, outcome="INCOMPLETE", frames=10,

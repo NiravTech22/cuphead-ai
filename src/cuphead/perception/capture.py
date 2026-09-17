@@ -23,6 +23,7 @@ and dry runs use in place of a real screen.
 from __future__ import annotations
 
 import time
+import platform
 import zlib
 from dataclasses import dataclass
 from typing import Callable, Iterator, Optional, Protocol
@@ -210,14 +211,29 @@ class IntegrityTracker:
             count += 1
 
 
-def open_screen_source(*, monitor: int = 1, region: Optional[dict] = None) -> FrameSource:
-    """Real screen capture via ``mss``, imported lazily.
+def open_screen_source(*, monitor: int = 1, region: Optional[dict] = None,
+                       backend: str = "auto", device_idx: int = 0,
+                       timeout: float = 2.0) -> FrameSource:
+    """Lazy screen capture: DXcam on Windows, MSS elsewhere.
+
+    Set ``backend='mss'`` for an explicit fallback. DXcam monitor numbers
+    start at 1 per GPU; its regions are relative to that output. MSS regions
+    retain their desktop coordinates. DXcam waits at most ``timeout`` seconds
+    for a new desktop frame, then raises TimeoutError.
 
     This is the backend a training session on the actual game uses. It is
     not exercised by the test suite -- there is no display in CI -- so its
     correctness rests on ``SyntheticFrameSource`` sharing the exact same
     ``FrameSource`` contract, which every test in this module exercises.
     """
+    if backend == "auto":
+        backend = "dxcam" if platform.system() == "Windows" else "mss"
+    if backend == "dxcam":
+        from .dxcam_capture import DXCamFrameSource
+        return DXCamFrameSource(monitor=monitor, region=region,
+                                device_idx=device_idx, timeout=timeout)
+    if backend != "mss":
+        raise ValueError("backend must be 'auto', 'dxcam', or 'mss'")
     try:
         import mss  # type: ignore[import-untyped]
     except ImportError as exc:

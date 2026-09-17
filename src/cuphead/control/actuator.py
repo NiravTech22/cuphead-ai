@@ -19,6 +19,7 @@ unit-testable with no ``/dev/uinput``, no root, and no evdev installed.
 from __future__ import annotations
 
 import time
+import platform
 from dataclasses import dataclass
 from typing import Any, Dict, List, Protocol, Tuple
 
@@ -345,8 +346,11 @@ class _UInputActuator:
         self._dev.close()
 
 
-def open_vgamepad_actuator(*, settle_seconds: float = UINPUT_SETTLE_SECONDS) -> Actuator:
-    """Real virtual-gamepad actuation via ``evdev``/``uinput``, imported lazily.
+def open_vgamepad_actuator(*, settle_seconds: float = UINPUT_SETTLE_SECONDS,
+                          backend: str | None = None) -> Actuator:
+    """Lazy virtual Xbox output: vgamepad on Windows, evdev/uinput on Linux.
+
+    ``backend`` can explicitly select ``vgamepad`` or ``uinput``.
 
     This is the backend an actual training session drives the game with. It
     requires ``/dev/uinput`` access (root, or the ``uinput`` group on most
@@ -358,6 +362,15 @@ def open_vgamepad_actuator(*, settle_seconds: float = UINPUT_SETTLE_SECONDS) -> 
     Under Wine/Proton the pad must exist *before* Cuphead enumerates
     controllers -- open the actuator, then launch the game.
     """
+    backend = backend or ("vgamepad" if platform.system() == "Windows" else "uinput")
+    if backend not in {"vgamepad", "uinput"}:
+        raise ValueError("backend must be 'vgamepad' or 'uinput'")
+    if backend == "vgamepad":
+        from .windows_gamepad import open_windows_actuator
+        actuator = open_windows_actuator()
+        if settle_seconds > 0:
+            time.sleep(settle_seconds)
+        return actuator
     try:
         from evdev import AbsInfo, UInput, ecodes  # type: ignore[import-untyped]
     except ImportError as exc:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import signal
 import statistics
 import subprocess
@@ -58,6 +59,8 @@ def main():
         "--launch", nargs=argparse.REMAINDER, help="launch command (must be last)"
     )
     args = parser.parse_args()
+    if args.real and args.controller == "keyboard" and platform.system() == "Windows":
+        parser.error("Windows control requires --controller gamepad; keyboard control uses X11")
     if args.max_steps < 1 or args.max_seconds <= 0:
         parser.error("positive step/time budgets required")
     if args.real and args.route is None:
@@ -150,7 +153,7 @@ def main():
     from cuphead.memory.latent_bank import LatentBank
     from cuphead.orchestration.memory_agent import MemoryAgent
     from cuphead.perception.landmarks import LandmarkVerifier
-    from cuphead.perception.window_capture import X11WindowSource
+    from cuphead.perception.window_capture import open_game_source
     from cuphead.planner.memory_planner import MemoryPlanner
     from cuphead.strategist.landmark_route import LandmarkRoute, RouteEdge
     from cuphead.world_model.knn_dynamics import KNNDynamics
@@ -203,7 +206,7 @@ def main():
         deadline = time.perf_counter() + min(45, args.max_seconds)
         while source is None:
             try:
-                source = X11WindowSource()
+                source = open_game_source()
             except RuntimeError:
                 if time.perf_counter() >= deadline or (
                     child and child.poll() is not None
