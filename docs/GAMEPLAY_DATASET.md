@@ -1,12 +1,25 @@
 # Gameplay dataset collection and gate
 
-Current status: recorder and gate implemented and tested; collection is **not
-complete**. Live preflight found no visible Cuphead X11 window and no readable
-physical gamepad. No human player has confirmed availability. The real dataset
-audit reports **0 eligible frames**: attempt 0, menu 0, idle 0; **0 seconds** of
-captured playtime; **encoder variance unmeasured**. Training remains blocked.
-Evidence: `experiments/gameplay_capture_preflight.json` and
-`experiments/gameplay_dataset_gate.json`.
+Current status: collection has begun but is **not complete**. The main real
+keyboard recording captured **3,031 frames over 101.020 seconds** at 256×256
+and 30 FPS. Review corrected its provisional `root_pack` label to
+**Forest Follies** and split it into **150 menu/entry frames** (4.986 seconds)
+and **2,881 attempt frames** (96.031 seconds): two full attempts, both deaths.
+The original recording is preserved under
+`data/recordings/root_pack_20260915T224811Z_647131753/`; its provisional metadata
+is superseded by `experiments/gameplay_segmentation_20260915.json`.
+
+Including the two earlier menu recordings, the integrity audit confirms
+**3,640 eligible frames over 121.287 seconds**: attempt **2,881**, menu **759**,
+idle **0**, full attempts **2**, successful clears **0**, with no invalid segments
+or late intervals. The saved 240-sample encoder probe measured mean variance
+**0.000143183** for independent images and **0.000130838** for consecutive clips;
+both remain below the configured **0.00025602** diversity threshold. Training
+remains blocked by insufficient coverage and the low-diversity result.
+Evidence: `experiments/gameplay_dataset_gate.json` and
+`experiments/gameplay_segmentation_20260915.json`. Raw recording images remain
+local and are excluded from Git; source recording metadata and input/timing logs
+are versioned.
 
 This task collects data only. It does not train, load a Cuphead predictor, select
 actions, or change the menu-navigation runner. The existing v1 memory bank is a
@@ -22,13 +35,16 @@ to about 56–111 minutes of capture, excluding breaks. This is sampled screen
 capture, not a guarantee of capturing every internal 60 Hz game frame.
 
 `scripts/record_session.py` reuses `X11WindowSource`, `IntegrityTracker`,
-`open_gamepad_source`, and `ReplayWriter`. Previously the recorder discarded
-pixels and timestamps; it now persists them beside the existing replay files:
+`ReplayWriter`, and the existing action normalization. Keyboard capture uses
+X11/XWayland held-key queries; `--input-source gamepad` retains the evdev reader.
+Both persist the same replay files:
 
 - `frames/00000000.png`, etc.: lossless PNG, RGB, bilinear stretch to target size.
 - `actions.jsonl`: unchanged frame-indexed normalized action format.
 - `frames.jsonl`: matching frame index, capture timestamp, input-poll timestamp,
-  source checksum, image path, and all evdev keys/axes at that input sample.
+  source checksum, image path, and a raw input snapshot at that input sample.
+  Keyboard snapshots have `backend: x11_keyboard`, named held-key states,
+  `axes: {}`, and `focused: true`; gamepad snapshots retain `backend: evdev`.
 - `meta.json`: type, boss/level, phase, observed outcome, full-attempt flag,
   reviewed-label flag, notes, resolution/rate, timing and image repetition counts.
 - `events.json` and `hud.jsonl`: existing replay files; no invented event/HUD truth.
@@ -36,8 +52,47 @@ pixels and timestamps; it now persists them beside the existing replay files:
 The physical input snapshot preserves menu, weapon-switch and super buttons that
 the pruned action representation omits. Inputs are sampled immediately after the
 image; timestamps expose this skew. Very short taps between samples can be
-missed. Use the physical gamepad being recorded for gameplay and navigation;
-keyboard gameplay is not recorded by this backend. Nothing sends input to the game.
+missed. The raw snapshot is cached from the same poll used for the normalized
+action, not sampled again after saving the image. Nothing sends input to the game.
+
+### Keyboard controls and schema compatibility
+
+Use Cuphead's default bindings (restore defaults in-game if customized):
+
+| Control | Key | Existing normalized action field |
+| --- | --- | --- |
+| Movement / aim | Arrow keys | `stick_x`, `stick_y` through `Action.from_raw` |
+| Jump / parry | Z | `a` |
+| Shoot | X | `x` |
+| Dash | Left Shift | `b` |
+| Aim lock | C | `rt` |
+| EX / super | V | Raw snapshot only |
+| Switch weapon | Tab | Raw snapshot only |
+| Menu controls | Enter, Escape, Backspace (plus arrows/Z/X) | Raw snapshot preserves each key |
+
+Gameplay defaults are documented in the [Cuphead controls guide](https://steamcommunity.com/sharedfiles/filedetails/?id=1310872602).
+These output names describe the existing normalized action representation, not
+the game's default physical controller layout.
+
+`actions.jsonl` stays exactly `{ "frame": i, "action": { "stick_x": float,
+"stick_y": float, "a": bool, "x": bool, "b": bool, "rt": bool } }`.
+Arrows first map to -1/0/+1 (up positive; opposite arrows cancel), then pass
+through the same `Action.from_raw(...).to_buttons()` path as gamepad input,
+including diagonal aim normalization and simultaneous-button pruning. No new
+action dimensions, frame indices, or timestamp fields are introduced.
+
+**Existing limitation:** this pruned combat representation drops EX/super,
+weapon switches, menu controls, and some simultaneous inputs; it does not fully
+represent every human action. Raw snapshots preserve these controls for both
+sources. A future predictor using only the six normalized fields cannot condition
+on those omitted controls without a separate, explicit schema change. The current
+sequence predictor accepts numeric action tensors; this task does not add a
+replay-to-training tensor adapter or claim training validation.
+
+Keyboard snapshots include only the listed Cuphead controls, not arbitrary typed
+text. Segment metadata records `input_source` and `keyboard_bindings`; the gate
+checks raw keyboard states against normalized actions and rejects unfocused,
+missing-key, or malformed snapshots. Existing gamepad segments remain valid.
 
 Real repeated images are retained and counted, including idle frames. Invalid
 indices, backward/nonfinite timestamps, window resize and input-reader errors
@@ -48,27 +103,36 @@ These are operational capture tolerances, not a claim of exact frame synchroniza
 
 ## Collect separate segments
 
-Open Cuphead and connect a readable physical gamepad. Keep the game window size
-fixed. Run the recorder in a terminal, then focus the game; stop with Ctrl+C at the
-segment boundary and label the actual outcome after recording. Remove loading or
-terminal-switch overhead from a full-attempt claim if its start was missed.
-For cleaner boundaries another person can start/stop capture while the player
-keeps the game focused. Choose the actual device path with `--device-path` when
-more than one gamepad is present.
+Open Cuphead with default keyboard bindings and keep its window size fixed.
+Install the existing capture dependencies from `requirements-memory.txt` (includes
+`python-xlib`). Keyboard is the default input source. Start the recorder in a
+terminal, then focus Cuphead within 60 seconds. The capture clock starts only when
+the game has focus. It accepts focus on the game drawable or its child windows.
+Switch away from Cuphead at the segment boundary to stop and save the complete
+frames, then enter the observed labels in the terminal with `--label-after`.
+Ctrl+C and the time/frame limit also stop capture. An unfocused final frame is
+discarded before its image/action is written. A keyboard server error aborts the
+segment rather than silently reusing stale input.
+
+Keep recording from level entry through death/results to claim a full attempt.
+Keyboard support targets the same Linux X11/XWayland game window as the existing
+screen source; native Wayland/Windows keyboard recording is not implemented.
+For future gamepad sessions use `--input-source gamepad`, optionally with
+`--device-path /dev/input/eventN`. Do not mix input sources within a segment.
 
 ```bash
 # Capture title → save → map → level entry manually as its own segment.
-.venv/bin/python scripts/record_session.py --real --segment-type menu \
+.venv/bin/python scripts/record_session.py --real --input-source keyboard --segment-type menu \
   --boss forest_follies --phase title_save_map_entry --fps 30 --width 256 --height 256 \
   --max-seconds 300 --label-after
 
 # Repeat for at least five FULL attempts. Keep recording through death/results.
-.venv/bin/python scripts/record_session.py --real --segment-type attempt \
+.venv/bin/python scripts/record_session.py --real --input-source keyboard --segment-type attempt \
   --boss forest_follies --phase whole_attempt --fps 30 --width 256 --height 256 \
   --max-seconds 1200 --label-after
 
 # A short no-input baseline; report IDLE only if no game input occurred.
-.venv/bin/python scripts/record_session.py --real --segment-type idle \
+.venv/bin/python scripts/record_session.py --real --input-source keyboard --segment-type idle \
   --boss forest_follies --phase level_start --fps 30 --width 256 --height 256 \
   --max-seconds 30 --label-after
 ```

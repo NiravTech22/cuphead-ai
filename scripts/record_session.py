@@ -21,6 +21,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 from cuphead.control.action_space import enumerate_actions
 from cuphead.control.human_input import ScriptedInputSource
+from cuphead.control.keyboard_input import KEYBOARD_BINDINGS, KeyboardFocusLost, X11KeyboardSource
 from cuphead.events.schema import EventTrace
 from cuphead.memory.replay import ReplayWriter
 from cuphead.perception.capture import FrameIntegrityError, IntegrityTracker, SyntheticFrameSource
@@ -49,9 +50,13 @@ def record(*, mode: str, root: Path, run_id: str, boss: str,
            frames: int | None, max_seconds: float | None,
            segment_type: str = "attempt", phase: str = "whole_attempt",
            width: int = 256, height: int = 256, device_path: str | None = None,
-           label_after: bool = False) -> Path:
+           label_after: bool = False, input_source: str = "keyboard") -> Path:
     if mode not in {"real", "synthetic"}:
         raise ValueError("mode must be real or synthetic")
+    if input_source not in {"keyboard", "gamepad"}:
+        raise ValueError("input_source must be keyboard or gamepad")
+    if input_source == "keyboard" and device_path is not None:
+        raise ValueError("--device-path applies only to --input-source gamepad")
     if not math.isfinite(fps) or fps <= 0 or min(width, height) < 1:
         raise ValueError("fps and image dimensions must be positive and finite")
     if frames is not None and frames < 1:
@@ -77,7 +82,8 @@ def record(*, mode: str, root: Path, run_id: str, boss: str,
 
         source = X11WindowSource()
         try:
-            inputs = open_gamepad_source(device_path=device_path)
+            inputs = (X11KeyboardSource(window_id=source.window_id) if input_source == "keyboard"
+                      else open_gamepad_source(device_path=device_path))
         except BaseException:
             source.close()
             raise
@@ -91,11 +97,15 @@ def record(*, mode: str, root: Path, run_id: str, boss: str,
     source_size = None
     max_gap = 0.0
     late_intervals = 0
-    started = time.perf_counter()
-    deadline = started + max_seconds if max_seconds else float("inf")
-    next_tick = started
-    print(f"Recording {segment_type} / {boss} / {phase}; Ctrl+C stops capture.", flush=True)
+    stop_reason = "capture_limit"
     try:
+        if mode == "real" and input_source == "keyboard":
+            print("Focus Cuphead within 60s to start; switching away ends the segment.", flush=True)
+            inputs.wait_for_focus()
+        started = time.perf_counter()
+        deadline = started + max_seconds if max_seconds else float("inf")
+        next_tick = started
+        print(f"Recording {segment_type} / {boss} / {phase}; Ctrl+C stops capture.", flush=True)
         writer = ReplayWriter(root, run_id=run_id, boss=boss, loadout=loadout,
                               game_build=game_build, fps=fps)
         with (directory / "frames.jsonl").open("x") as times:
@@ -104,6 +114,7 @@ def record(*, mode: str, root: Path, run_id: str, boss: str,
                     frame = tracker.read()
                     action = inputs.poll()
                     action_t = time.perf_counter()
+                    raw_input = getattr(inputs, "snapshot", lambda: None)()
                     if frame.index != count or not math.isfinite(frame.t_capture):
                         raise FrameIntegrityError("invalid source index or capture timestamp")
                     if last_t is not None:
@@ -128,7 +139,7 @@ def record(*, mode: str, root: Path, run_id: str, boss: str,
                     times.write(json.dumps({
                         "frame": count, "capture_t": frame.t_capture, "action_t": action_t,
                         "checksum": frame.checksum, "image": image_path,
-                        "raw_input": getattr(inputs, "snapshot", lambda: None)(),
+                        "raw_input": raw_input,
                     }) + "\n")
                     times.flush()
                     first_t = frame.t_capture if first_t is None else first_t
@@ -140,7 +151,8 @@ def record(*, mode: str, root: Path, run_id: str, boss: str,
                         # No fabricated catch-up frames after a stall.
                         next_tick = max(next_tick, now)
                         time.sleep(max(0, next_tick - now))
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, KeyboardFocusLost) as exc:
+                stop_reason = "focus_lost" if isinstance(exc, KeyboardFocusLost) else "interrupt"
                 # A partially written final row must not be certified as aligned.
                 print(f"\nStopped at {count} complete frames.", file=sys.stderr)
         if count == 0:
@@ -158,12 +170,16 @@ def record(*, mode: str, root: Path, run_id: str, boss: str,
                 "resolution": [width, height], "source_resolution": source_size,
                 "pixel_format": "RGB", "resize": "bilinear_stretch",
                 "timestamps": "frames.jsonl",
-                "action_semantics": "human input polled immediately after capture; normalized action and raw evdev snapshot",
+                "action_semantics": "human input polled immediately after capture; normalized action and raw input snapshot",
                 "capture_span_seconds": last_t - first_t,
                 "captured_seconds": last_t - first_t + dt,
                 "max_capture_gap_seconds": max_gap, "late_intervals": late_intervals,
                 "repeated_images": tracker.report.duplicates,
-                "input_device": device_path or "auto",
+                "input_source": input_source if mode == "real" else "scripted",
+                "input_device": ("scripted" if mode == "synthetic" else
+                                 "x11_keyboard" if input_source == "keyboard" else (device_path or "auto")),
+                "keyboard_bindings": KEYBOARD_BINDINGS if mode == "real" and input_source == "keyboard" else None,
+                "stop_reason": stop_reason,
             })
     except BaseException:
         if writer is not None:
@@ -201,7 +217,9 @@ def main() -> int:
     ap.add_argument("--height", type=int, default=256)
     ap.add_argument("--segment-type", choices=["attempt", "menu", "idle"], default="attempt")
     ap.add_argument("--phase", default="whole_attempt")
-    ap.add_argument("--device-path", help="Physical evdev gamepad to read")
+    ap.add_argument("--input-source", choices=["keyboard", "gamepad"], default="keyboard",
+                    help="Human controls to sample (default: keyboard, Cuphead default bindings)")
+    ap.add_argument("--device-path", help="Physical evdev device for --input-source gamepad")
     ap.add_argument("--label-after", action="store_true")
     ap.add_argument("--outcome", default="INCOMPLETE", choices=["KNOCKOUT", "DEATH", "INCOMPLETE", "IDLE", "NAVIGATION"],
                     help="Provisional until reviewed after recording; use --label-after")
@@ -212,6 +230,8 @@ def main() -> int:
     args = ap.parse_args()
     if args.mode == "real" and args.frames is None and args.max_seconds is None:
         ap.error("--real needs --max-seconds or --frames; Ctrl+C stops early")
+    if args.input_source == "keyboard" and args.device_path is not None:
+        ap.error("--device-path requires --input-source gamepad")
     args.run_id = args.run_id or default_run_id(args.boss)
     args.loadout = parse_loadout(args.loadout)
     record(**vars(args))

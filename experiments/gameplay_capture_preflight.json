@@ -1,8 +1,15 @@
 {
-  "checked_at_utc": "2026-09-13T23:43:21.016311+00:00",
+  "checked_at_utc": "2026-09-15T22:29:55.453067+00:00",
   "game_window": {
     "available": false,
     "reason": "RuntimeError: no visible X11 game window named 'Cuphead'"
   },
-  "readable_gamepads": []
+  "readable_gamepads": [],
+  "selected_input_source": "keyboard",
+  "keyboard": {
+    "backend": "x11_keyboard",
+    "available": true,
+    "mapped_game_keys": 13,
+    "note": "Live X11 keymap query succeeded; gameplay and held-key behavior not yet verified with a human."
+  }
 }

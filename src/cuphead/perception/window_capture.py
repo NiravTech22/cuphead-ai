@@ -43,6 +43,10 @@ class X11WindowSource:
             return None
         return None
 
+    @property
+    def window_id(self) -> int:
+        return self._window.id
+
     def read(self) -> Frame:
         from PIL import Image
 

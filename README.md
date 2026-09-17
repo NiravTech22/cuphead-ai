@@ -117,17 +117,18 @@ python3 scripts/latency_canary.py --real --launch wine /path/to/Cuphead.exe
 # For a real game session, keep that virtual pad alive for the whole process.
 python3 scripts/launch_with_vgamepad.py -- wine /path/to/Cuphead.exe
 
-# Record a human demonstration while the game is open:
-python3 scripts/record_session.py --real --boss goopy_le_grande \
-    --loadout weapon=peashooter,charm=smoke_bomb --max-seconds 120
+# Record keyboard play with default bindings; focus Cuphead to start, switch away to stop:
+python3 scripts/record_session.py --real --input-source keyboard --boss forest_follies \
+    --loadout weapon=peashooter,charm=smoke_bomb --max-seconds 120 --label-after
 ```
 
-`--real` needs `pip install -r requirements.txt` for `mss` (screen capture) and `evdev`
-(controller input and the virtual pad); both import lazily, so nothing else in the repo
-needs them installed. Record several dozen short attempts — including deaths — before
-touching any training code; see `docs/SPEEDRUN_PLAN.md` §2.5 and §4.4 for why the first
-data is human, not agent, and why a corrupted or misaligned recording is refused rather
-than silently written.
+Real recording uses the existing X11/XWayland capture dependencies in
+`requirements-memory.txt`. Keyboard capture needs no gamepad or `/dev/input` access.
+`--input-source gamepad` selects the existing evdev reader instead. Both sources use
+the same normalized frame/action schema and save raw input snapshots alongside it.
+See [gameplay collection and its mandatory gate](docs/GAMEPLAY_DATASET.md) for
+controls, segment labels, schema limitations, and the 100,000-frame minimum.
+Training remains blocked until coverage and the measured encoder-diversity check pass.
 
 ## The rules that make it work
 

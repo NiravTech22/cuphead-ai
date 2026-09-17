@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from cuphead.memory.replay import ReplayReader, _atomic_write_text
+from cuphead.control.keyboard_input import KEYBOARD_BINDINGS, KEYBOARD_KEYS, keyboard_action
 
 OUTCOMES = {"attempt": {"DEATH", "KNOCKOUT", "INCOMPLETE"},
             "menu": {"NAVIGATION", "INCOMPLETE"}, "idle": {"IDLE"}}
@@ -130,9 +131,21 @@ def inspect_dataset(root: Path, *, width: int, height: int, fps: float,
                         or row["action_t"] - row["capture_t"] > 1 / fps):
                     raise ValueError("input sample is more than one frame late or precedes capture")
                 raw = row.get("raw_input")
-                if not isinstance(raw, dict) or raw.get("backend") != "evdev" or not all(k in raw for k in ("keys", "axes")):
+                if (not isinstance(raw, dict) or raw.get("backend") not in {"evdev", "x11_keyboard"}
+                        or not all(isinstance(raw.get(k), dict) for k in ("keys", "axes"))):
                     raise ValueError("missing physical input snapshot (menu controls cannot be inferred)")
                 action = replay.actions[row["frame"]]["action"]
+                if raw["backend"] == "x11_keyboard":
+                    if (extra.get("input_source") != "keyboard"
+                            or extra.get("keyboard_bindings") != KEYBOARD_BINDINGS
+                            or raw.get("focused") is not True or raw["axes"]
+                            or set(raw["keys"]) != set(KEYBOARD_KEYS)
+                            or any(type(v) not in (int, bool) or v not in (0, 1) for v in raw["keys"].values())):
+                        raise ValueError("invalid keyboard snapshot, focus or default bindings")
+                    if action != keyboard_action(raw["keys"]).to_buttons():
+                        raise ValueError("keyboard state does not match normalized action")
+                elif extra.get("input_source") == "keyboard":
+                    raise ValueError("keyboard segment contains non-keyboard input")
                 if kind == "idle" and (any(raw["keys"].values()) or any(
                         action.get(k) for k in ("a", "b", "x", "rt", "stick_x", "stick_y"))):
                     raise ValueError("idle segment contains input")

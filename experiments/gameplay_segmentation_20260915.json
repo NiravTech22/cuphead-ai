@@ -1,0 +1,35 @@
+{
+  "source_recording": "data/recordings/root_pack_20260915T224811Z_647131753",
+  "original_frame_count": 3031,
+  "boss_correction": "Entry screen confirms Forest Follies; provisional root_pack label was incorrect.",
+  "review": "Visual timeline plus human confirmation of deaths and retries.",
+  "segments": [
+    {
+      "run_id": "forest_follies_20260915_menu_entry_01",
+      "start": 0,
+      "end_exclusive": 150,
+      "frame_count": 150,
+      "segment_type": "menu",
+      "outcome": "NAVIGATION",
+      "full_attempt": false
+    },
+    {
+      "run_id": "forest_follies_20260915_attempt_01",
+      "start": 150,
+      "end_exclusive": 1944,
+      "frame_count": 1794,
+      "segment_type": "attempt",
+      "outcome": "DEATH",
+      "full_attempt": true
+    },
+    {
+      "run_id": "forest_follies_20260915_attempt_02",
+      "start": 1944,
+      "end_exclusive": 3031,
+      "frame_count": 1087,
+      "segment_type": "attempt",
+      "outcome": "DEATH",
+      "full_attempt": true
+    }
+  ]
+}

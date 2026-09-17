@@ -11,6 +11,7 @@ venv/
 # Manifests and experiment records are NOT ignored -- they are the evidence.
 data/replays/
 data/frames/
+data/recordings/**/frames/
 *.mp4
 *.npz
 *.npy

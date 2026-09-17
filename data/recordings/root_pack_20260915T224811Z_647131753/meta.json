@@ -1,0 +1,52 @@
+{
+  "run_id": "root_pack_20260915T224811Z_647131753",
+  "boss": "root_pack",
+  "loadout": {},
+  "game_build": "unknown",
+  "fps": 30.0,
+  "outcome": "INCOMPLETE",
+  "frame_count": 3031,
+  "extras": {
+    "schema": "dataset_segment_v1",
+    "mode": "real",
+    "segment_type": "attempt",
+    "phase": "whole_attempt",
+    "labels_verified": false,
+    "full_attempt": false,
+    "resolution": [
+      256,
+      256
+    ],
+    "source_resolution": [
+      966,
+      572
+    ],
+    "pixel_format": "RGB",
+    "resize": "bilinear_stretch",
+    "timestamps": "frames.jsonl",
+    "action_semantics": "human input polled immediately after capture; normalized action and raw input snapshot",
+    "capture_span_seconds": 100.98623456600035,
+    "captured_seconds": 101.01956789933368,
+    "max_capture_gap_seconds": 0.04155338600003233,
+    "late_intervals": 0,
+    "repeated_images": 11,
+    "input_source": "keyboard",
+    "input_device": "x11_keyboard",
+    "keyboard_bindings": {
+      "left": "Left",
+      "right": "Right",
+      "up": "Up",
+      "down": "Down",
+      "jump": "z",
+      "shoot": "x",
+      "dash": "Shift_L",
+      "lock": "c",
+      "ex_super": "v",
+      "switch_weapon": "Tab",
+      "confirm": "Return",
+      "pause_back": "Escape",
+      "backspace": "BackSpace"
+    },
+    "stop_reason": "focus_lost"
+  }
+}

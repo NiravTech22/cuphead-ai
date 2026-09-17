@@ -140,6 +140,43 @@ class DatasetIntegrityTests(unittest.TestCase):
         path.write_text("".join(json.dumps(r) + "\n" for r in rows))
         self.assertEqual(self.audit()["total_frame_count"], 0)
 
+    def test_keyboard_snapshots_are_validated_and_idle_controls_rejected(self):
+        from cuphead.control.keyboard_input import KEYBOARD_KEYS, KEYBOARD_BINDINGS
+        from cuphead.control.action_space import Action
+        directory = make_segment(self.root, kind="idle", outcome="IDLE")
+        meta_path = directory / "meta.json"
+        meta = json.loads(meta_path.read_text())
+        meta["extras"].update(input_source="keyboard", keyboard_bindings=KEYBOARD_BINDINGS)
+        meta_path.write_text(json.dumps(meta))
+        path = directory / "frames.jsonl"
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        for row in rows:
+            row["raw_input"] = {"backend": "x11_keyboard", "keys": dict.fromkeys(KEYBOARD_KEYS, 0),
+                                "axes": {}, "focused": True}
+        def save():
+            path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+        (directory / "actions.jsonl").write_text("".join(
+            json.dumps({"frame": i, "action": Action().to_buttons()}) + "\n" for i in range(len(rows))))
+        save()
+        self.assertEqual(self.audit()["total_frame_count"], 100)
+        # Even keys omitted by the pruned action schema invalidate idle labels.
+        for key in ("v", "Tab", "Return", "Escape"):
+            rows[0]["raw_input"]["keys"][key] = 1
+            save()
+            self.assertEqual(self.audit()["total_frame_count"], 0)
+            rows[0]["raw_input"]["keys"][key] = 0
+        rows[0]["raw_input"]["keys"]["z"] = 1
+        save()
+        self.assertIn("does not match", self.audit()["invalid_segments"][0]["reason"])
+        rows[0]["raw_input"]["keys"]["z"] = 0
+        rows[0]["raw_input"]["focused"] = False
+        save()
+        self.assertEqual(self.audit()["total_frame_count"], 0)
+        rows[0]["raw_input"]["focused"] = True
+        del rows[0]["raw_input"]["keys"]["z"]
+        save()
+        self.assertEqual(self.audit()["total_frame_count"], 0)
+
     def test_repeated_idle_pixels_are_retained(self):
         directory = make_segment(self.root, kind="idle", outcome="IDLE")
         path = directory / "frames.jsonl"
@@ -219,10 +256,67 @@ class RecorderTests(unittest.TestCase):
                 "cuphead.control.human_input.open_gamepad_source", return_value=Input()):
             directory = self.module().record(mode="real", root=Path(tmp), run_id="idle", boss="forest",
                 loadout={}, game_build="test", fps=30, outcome="IDLE", frames=3, max_seconds=None,
-                segment_type="idle", width=16, height=16)
+                segment_type="idle", width=16, height=16, input_source="gamepad")
             with Image.open(directory / "frames/00000002.png") as image:
                 self.assertEqual(image.size, (16, 16))
             self.assertEqual(ReplayReader(Path(tmp), "idle").read().meta.extras["repeated_images"], 2)
+
+    @unittest.skipUnless(HAS_PIXELS, "Pillow required")
+    def test_keyboard_recording_focus_boundary_preserves_alignment_and_schema(self):
+        import time
+        from cuphead.perception.capture import Frame
+        from cuphead.control.keyboard_input import KEYBOARD_KEYS, KeyboardFocusLost, keyboard_action
+        class Source:
+            window_id = 42
+            def __init__(self):
+                self.index = 0
+            def read(self):
+                frame = Frame(self.index, time.perf_counter(), bytes(16 * 16 * 3), 1, 16, 16)
+                self.index += 1
+                return frame
+            def close(self):
+                pass
+        class Input:
+            def __init__(self):
+                self.count = 0
+                self.closed = False
+                self.waited = False
+                self.keys = dict.fromkeys(KEYBOARD_KEYS, 0)
+                self.keys.update(Right=1, z=1, x=1)
+            def wait_for_focus(self):
+                self.waited = True
+            def poll(self):
+                self.count += 1
+                if self.count > 3:
+                    raise KeyboardFocusLost("test segment boundary")
+                return keyboard_action(self.keys)
+            def snapshot(self):
+                return {"backend": "x11_keyboard", "keys": dict(self.keys), "axes": {}, "focused": True}
+            def close(self):
+                self.closed = True
+        module = self.module()
+        inputs = Input()
+        with tempfile.TemporaryDirectory() as tmp, patch(
+                "cuphead.perception.window_capture.X11WindowSource", Source), patch.object(
+                module, "X11KeyboardSource", return_value=inputs) as factory:
+            directory = module.record(mode="real", root=Path(tmp), run_id="keys", boss="forest_follies",
+                loadout={}, game_build="test", fps=30, outcome="INCOMPLETE", frames=10,
+                max_seconds=None, width=16, height=16)
+            factory.assert_called_once_with(window_id=42)
+            self.assertTrue(inputs.waited)
+            self.assertTrue(inputs.closed)
+            replay = ReplayReader(Path(tmp), "keys").read()
+            self.assertEqual(replay.meta.frame_count, 3)
+            self.assertEqual(replay.meta.extras["stop_reason"], "focus_lost")
+            for row in replay.actions:
+                self.assertEqual(row["action"], keyboard_action(inputs.keys).to_buttons())
+            rows = [json.loads(line) for line in (directory / "frames.jsonl").read_text().splitlines()]
+            self.assertEqual([r["frame"] for r in rows], [0, 1, 2])
+            self.assertTrue(all(r["capture_t"] <= r["action_t"] for r in rows))
+            label_segment(directory, outcome="INCOMPLETE", notes="test")
+            report, _ = inspect_dataset(Path(tmp), width=16, height=16, fps=30, boss="forest_follies")
+            self.assertEqual(report["total_frame_count"], 3)
+            self.assertEqual(report["invalid_segments"], [])
 
 
 class PhysicalInputTests(unittest.TestCase):

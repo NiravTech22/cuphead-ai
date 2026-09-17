@@ -7,22 +7,104 @@
     "fps": 30,
     "pixel_format": "RGB"
   },
-  "dataset_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "total_frame_count": 0,
+  "dataset_sha256": "ef8b543a1a2d4ebaeab75fef7ef3aa6706c1aaedd0f4b2c13a0271d440af19bc",
+  "total_frame_count": 3640,
   "frames_by_segment_type": {
-    "attempt": 0,
-    "menu": 0,
+    "attempt": 2881,
+    "menu": 759,
     "idle": 0
   },
-  "frames_by_outcome": {},
-  "full_target_attempts": 0,
+  "frames_by_outcome": {
+    "NAVIGATION": 759,
+    "DEATH": 2881
+  },
+  "full_target_attempts": 2,
   "successful_clears": 0,
   "clear_note": "A successful clear is desired if manually achievable; never inferred from level entry.",
-  "captured_wall_clock_seconds": 0,
-  "capture_span_seconds": 0,
+  "captured_wall_clock_seconds": 121.28733339666692,
+  "capture_span_seconds": 121.12066673000027,
   "time_definition": "sum of per-segment last-first capture timestamps plus one nominal frame interval; excludes breaks",
-  "segments": [],
+  "segments": [
+    {
+      "directory": "/home/nirav/cuphead-ai/data/replays/forest_follies_20260915T224321Z_080499248",
+      "segment": "forest_follies_20260915T224321Z_080499248",
+      "segment_type": "menu",
+      "boss": "forest_follies",
+      "phase": "loading_and_overworld_navigation",
+      "outcome": "NAVIGATION",
+      "full_attempt": false,
+      "frame_count": 447,
+      "captured_seconds": 14.886372086333298,
+      "capture_span_seconds": 14.853038752999964,
+      "late_intervals": 0,
+      "repeated_images": 1
+    },
+    {
+      "directory": "/home/nirav/cuphead-ai/data/replays/forest_follies_20260915T224620Z_042743026",
+      "segment": "forest_follies_20260915T224620Z_042743026",
+      "segment_type": "menu",
+      "boss": "forest_follies",
+      "phase": "death_menu_retry_loading",
+      "outcome": "NAVIGATION",
+      "full_attempt": false,
+      "frame_count": 162,
+      "captured_seconds": 5.383555878333512,
+      "capture_span_seconds": 5.350222545000179,
+      "late_intervals": 0,
+      "repeated_images": 7
+    },
+    {
+      "directory": "/home/nirav/cuphead-ai/data/replays/forest_follies_20260915_attempt_01",
+      "segment": "forest_follies_20260915_attempt_01",
+      "segment_type": "attempt",
+      "boss": "forest_follies",
+      "phase": "whole_attempt",
+      "outcome": "DEATH",
+      "full_attempt": true,
+      "frame_count": 1794,
+      "captured_seconds": 59.80051413033337,
+      "capture_span_seconds": 59.76718079700004,
+      "late_intervals": 0,
+      "repeated_images": 0
+    },
+    {
+      "directory": "/home/nirav/cuphead-ai/data/replays/forest_follies_20260915_attempt_02",
+      "segment": "forest_follies_20260915_attempt_02",
+      "segment_type": "attempt",
+      "boss": "forest_follies",
+      "phase": "whole_attempt",
+      "outcome": "DEATH",
+      "full_attempt": true,
+      "frame_count": 1087,
+      "captured_seconds": 36.230822202333485,
+      "capture_span_seconds": 36.19748886900015,
+      "late_intervals": 0,
+      "repeated_images": 5
+    },
+    {
+      "directory": "/home/nirav/cuphead-ai/data/replays/forest_follies_20260915_menu_entry_01",
+      "segment": "forest_follies_20260915_menu_entry_01",
+      "segment_type": "menu",
+      "boss": "forest_follies",
+      "phase": "map_level_entry",
+      "outcome": "NAVIGATION",
+      "full_attempt": false,
+      "frame_count": 150,
+      "captured_seconds": 4.986069099333266,
+      "capture_span_seconds": 4.9527357659999325,
+      "late_intervals": 0,
+      "repeated_images": 6
+    }
+  ],
   "excluded": [
+    {
+      "segment": "forest_follies_20260915T224044Z_025246456",
+      "reason": "unfinalized"
+    },
+    {
+      "segment": "forest_follies_20260915T225452Z_603623472",
+      "reason": "unfinalized"
+    },
     {
       "segment": "smoke_20260909",
       "reason": "legacy or synthetic; not verified pixel/action data"
@@ -31,16 +113,1513 @@
   "invalid_segments": [],
   "coverage_passed": false,
   "blocking_reasons": [
-    "only 0 eligible frames; need at least 100000",
-    "only 0 full forest_follies attempts; target five",
-    "need at least two witnessed full attempts ending in death",
+    "only 3640 eligible frames; need at least 100000",
+    "only 2 full forest_follies attempts; target five",
     "need at least 100 reviewed frames each of menu and idle",
-    "at least 70% of eligible frames must be gameplay attempts; idle/menu cannot pad the target",
-    "only 0 sample frames; need at least 200",
-    "encoder variance has not been measured on >=200 new dataset frames"
+    "STILL-COLLAPSED / low-diversity encoder output: inspect encoder before proceeding"
   ],
-  "encoder_probe": null,
+  "encoder_probe": {
+    "encoder": {
+      "backend": "vjepa2.1:base:int8",
+      "checkpoint_sha256": "848a77c33cc9e6649ed2119c9bea1e2c569bcdab9539ff3e7c02ccc2959ddf4d",
+      "source_sha256": "b53eddda99fd6ecbd8427353652be847b1a8a5cd642cd0387684c7692c03f8ee",
+      "dimension": 384,
+      "clip_frames": 4,
+      "projection_seed": 17,
+      "pooling": "mean_tokens",
+      "preprocess": "rgb-square-imagenet-v1",
+      "low_size": 128,
+      "high_size": 256
+    },
+    "samples": [
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 0,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 48,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 97,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 146,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 195,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 244,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 292,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 341,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 390,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 439,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 488,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 536,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 585,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 634,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 683,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 732,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 781,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 829,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 878,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 927,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 976,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1025,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1073,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1122,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1171,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1220,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1269,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1317,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1366,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1415,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1464,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1513,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1562,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1610,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1659,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1708,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_01",
+        "frame": 1757,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 12,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 60,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 109,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 158,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 207,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 256,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 304,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 353,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 402,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 451,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 500,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 549,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 597,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 646,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 695,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 744,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 793,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 841,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 890,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 939,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 988,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 1037,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915_attempt_02",
+        "frame": 1086,
+        "segment_type": "attempt",
+        "outcome": "DEATH"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 0,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 2,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 5,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 8,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 10,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 13,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 16,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 19,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 21,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 24,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 27,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 30,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 32,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 35,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 38,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 40,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 43,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 46,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 49,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 51,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 54,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 57,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 60,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 62,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 65,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 68,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 70,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 73,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 76,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 79,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 81,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 84,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 87,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 90,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 92,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 95,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 98,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 100,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 103,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 106,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 109,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 111,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 114,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 117,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 120,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 122,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 125,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 128,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 130,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 133,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 136,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 139,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 141,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 144,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 147,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 150,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 152,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 155,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 158,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224620Z_042743026",
+        "frame": 161,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 0,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 7,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 15,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 22,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 30,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 37,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 45,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 52,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 60,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 68,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 75,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 83,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 90,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 98,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 105,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 113,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 120,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 128,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 136,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 143,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 151,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 158,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 166,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 173,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 181,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 188,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 196,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 204,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 211,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 219,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 226,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 234,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 241,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 249,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 257,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 264,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 272,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 279,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 287,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 294,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 302,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 309,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 317,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 325,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 332,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 340,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 347,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 355,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 362,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 370,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 377,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 385,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 393,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 400,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 408,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 415,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 423,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 430,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 438,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915T224321Z_080499248",
+        "frame": 446,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 0,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 2,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 5,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 7,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 10,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 12,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 15,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 17,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 20,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 22,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 25,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 27,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 30,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 32,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 35,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 37,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 40,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 42,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 45,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 47,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 50,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 53,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 55,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 58,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 60,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 63,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 65,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 68,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 70,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 73,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 75,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 78,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 80,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 83,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 85,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 88,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 90,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 93,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 95,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 98,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 101,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 103,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 106,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 108,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 111,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 113,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 116,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 118,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 121,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 123,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 126,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 128,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 131,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 133,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 136,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 138,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 141,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 143,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 146,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      },
+      {
+        "segment": "forest_follies_20260915_menu_entry_01",
+        "frame": 149,
+        "segment_type": "menu",
+        "outcome": "NAVIGATION"
+      }
+    ],
+    "variance_definition": "mean across dimensions of population variance across unit-normalized embeddings",
+    "previous_eight_screenshot_variance": 0.00012801,
+    "comparable_threshold": 0.00025602,
+    "threshold_note": "Conservative 2x prior-probe heuristic; absolute normalized variance alone does not prove encoder collapse.",
+    "independent_image_128_comparable_to_previous": {
+      "samples": 240,
+      "dimension": 384,
+      "mean_output_variance": 0.00014318268983749482,
+      "min_dimension_variance": 2.314053594092239e-05,
+      "mean_norm": 0.9999999977715542,
+      "ratio_to_previous_probe": 1.1185273794039126,
+      "still_collapsed_or_low_diversity": true
+    },
+    "consecutive_clip_256": {
+      "samples": 240,
+      "dimension": 384,
+      "mean_output_variance": 0.00013083822569260594,
+      "min_dimension_variance": 1.746753505976735e-05,
+      "mean_norm": 1.000000003403084,
+      "ratio_to_previous_probe": 1.0220937871463631,
+      "still_collapsed_or_low_diversity": true
+    },
+    "clip_variance_by_segment_type": {
+      "attempt": {
+        "samples": 60,
+        "dimension": 384,
+        "mean_output_variance": 8.028640732156491e-05,
+        "min_dimension_variance": 1.4565524555011102e-05,
+        "mean_norm": 1.0000000042152133,
+        "ratio_to_previous_probe": 0.6271885580936248,
+        "still_collapsed_or_low_diversity": true
+      },
+      "menu": {
+        "samples": 180,
+        "dimension": 384,
+        "mean_output_variance": 0.0001293304413081798,
+        "min_dimension_variance": 1.4084393038561237e-05,
+        "mean_norm": 1.0000000031323744,
+        "ratio_to_previous_probe": 1.0103151418496976,
+        "still_collapsed_or_low_diversity": true
+      }
+    },
+    "passed": false,
+    "status": "still_collapsed_or_low_diversity",
+    "recommendation": "Inspect encoder/preprocessing before collecting more of the same data"
+  },
   "training_allowed": false,
   "data_collection_done": false,
-  "sample_count": 0
+  "sample_count": 240
 }
