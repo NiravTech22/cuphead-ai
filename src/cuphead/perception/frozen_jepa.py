@@ -13,7 +13,10 @@ import json
 import sys
 from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from torch import nn
 
 from .latent_encoder import EncoderUnavailableError, _as_pil_image
 
@@ -141,6 +144,65 @@ class FrozenJEPAEncoder:
     def reset(self) -> None:
         """Clear motion context at menu/level boundaries and episode resets."""
         self._history.clear()
+
+    def cuda_graph_module(self, *, precision: str = "float32") -> nn.Module:
+        """Return a tensor-only adapter for RingBufferedGPURecordedAgentEngine.
+
+        Input: contiguous uint8 [1,3,T,H,W] RGB, already resized to a fixed
+        square size (128 for T=1; 256 for video). Output: float32 [1,output_dim].
+        Normalization, token pooling and the fixed projection execute on GPU.
+        Clip assembly and resizing belong to the producer, outside graph capture.
+
+        Requires construction with quantization='none', device='cuda:N'. This
+        transfers exclusive use of the underlying model: do not call encode(),
+        train, move or mutate it. Recreate the loader to return to encode(). Precision changes can
+        affect neighbors; rebuild/validate banks with the same adapter settings.
+        """
+        torch = self._torch
+        if not self.backend_name.endswith(":none") or torch.device(self.device).type != "cuda":
+            raise ValueError("graph adapter requires an unquantized CUDA encoder")
+        dtypes = {"float32": torch.float32, "float16": torch.float16, "bfloat16": torch.bfloat16}
+        if precision not in dtypes:
+            raise ValueError("precision must be float32, float16 or bfloat16")
+        dtype = dtypes[precision]
+        if dtype == torch.bfloat16:
+            with torch.cuda.device(self.device):
+                if not torch.cuda.is_bf16_supported():
+                    raise ValueError("selected GPU does not support bfloat16")
+        model = self._model.to(dtype=dtype)
+        # Probe outside capture; never lazily allocate a projection inside forward.
+        with torch.inference_mode():
+            probe = model(torch.zeros((1, 3, 1, 128, 128), device=self.device, dtype=dtype))
+            if not isinstance(probe, torch.Tensor) or probe.ndim != 3:
+                raise ValueError("V-JEPA must return [batch,tokens,features]")
+            width = probe.shape[-1]
+        projection = torch.eye(width) if width == self.output_dim else (
+            torch.randn(width, self.output_dim, generator=torch.Generator().manual_seed(self.seed))
+            / self.output_dim**0.5
+        )
+
+        class GraphEncoder(torch.nn.Module):
+            """Static RGB tensor adapter; all buffers are registered and GPU-resident."""
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.backbone = model
+                self.register_buffer("projection", projection.to(device=model_device))
+                self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406], device=model_device, dtype=dtype).view(1, 3, 1, 1, 1))
+                self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225], device=model_device, dtype=dtype).view(1, 3, 1, 1, 1))
+
+            def forward(self, pixels: torch.Tensor) -> torch.Tensor:
+                if pixels.dtype != torch.uint8 or pixels.ndim != 5 or pixels.shape[:2] != (1, 3):
+                    raise ValueError("adapter input must be uint8 [1,3,T,H,W]")
+                frames = pixels.shape[2]
+                size = 128 if frames == 1 else 256
+                if (frames != 1 and (frames < 2 or frames % 2)) or pixels.shape[3:] != (size, size):
+                    raise ValueError("use T=1 at 128px or positive even T at 256px")
+                batch = (pixels.to(dtype=dtype) / 255.0 - self.mean) / self.std
+                return self.backbone(batch).mean(dim=1).float() @ self.projection
+
+        model_device = self.device
+        return GraphEncoder().eval().requires_grad_(False)
 
     def encode_clip(self, frames, *, low_detail: bool = False) -> tuple[float, ...]:
         """Encode consecutive captured frames, rather than widely spaced decisions."""

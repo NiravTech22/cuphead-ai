@@ -197,3 +197,9 @@ action-specific kNN consequence prediction, local untried-action exploration,
 and verified visual breadcrumb navigation. Run `python3 scripts/run_memory_agent.py --synthetic` for the dependency-free integration fixture or follow the linked
 guide for pretrained benchmarks and real Wine control. First-level combat
 completion is not yet validated.
+
+An optional [ring-buffered CUDA engine](docs/CUDA_RECORDED_AGENT.md) adds per-slot
+manual CUDA graphs, asynchronous pinned-memory transfers, GPU cosine kNN action
+voting and a measured <33 ms deadline. It includes a frozen V-JEPA tensor adapter,
+an active-loop benchmark and opt-in CUDA tests. Actual GPU latency and overlap
+require validation on the target hardware.

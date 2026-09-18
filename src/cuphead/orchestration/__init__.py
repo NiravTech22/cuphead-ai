@@ -7,6 +7,7 @@ because it is what tells you whether the rest of the project is safe to start.
 from .gates import ArmResult, GateVerdict, evaluate, format_verdict
 from .state_store import StateError, StateStore, utcnow
 from .tasks import Task, refresh_blocked, select_next, set_status, unblocked
+from .gpu_recorded_agent import InferenceResult, RingBufferedGPURecordedAgentEngine
 
 __all__ = [
     "ArmResult",
@@ -21,4 +22,6 @@ __all__ = [
     "set_status",
     "unblocked",
     "utcnow",
+    "InferenceResult",
+    "RingBufferedGPURecordedAgentEngine",
 ]
