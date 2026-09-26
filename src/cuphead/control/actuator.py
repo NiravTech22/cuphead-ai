@@ -281,6 +281,7 @@ class _UInputActuator:
     def __init__(self, dev: Any, ecodes: Any) -> None:
         self._dev = dev
         self._ecodes = ecodes
+        self._lease = None
         self.neutral()
 
     def neutral(self) -> None:
@@ -342,12 +343,43 @@ class _UInputActuator:
         self.neutral()
 
     def close(self) -> None:
-        self.neutral()
-        self._dev.close()
+        if self._dev is None:
+            return
+        try:
+            self.neutral()
+        finally:
+            try:
+                self._dev.close()
+            finally:
+                self._dev = None
+                if self._lease is not None:
+                    self._lease.close()
+                    self._lease = None
 
 
 def open_vgamepad_actuator(*, settle_seconds: float = UINPUT_SETTLE_SECONDS,
                           backend: str | None = None) -> Actuator:
+    """Acquire exclusive controller ownership before opening a native device."""
+    from .controller_lease import ControllerLease
+
+    lease = ControllerLease()
+    actuator = None
+    try:
+        actuator = _open_vgamepad_actuator(backend=backend)
+        actuator._lease = lease
+        if settle_seconds > 0:
+            time.sleep(settle_seconds)
+        return actuator
+    except BaseException:
+        try:
+            if actuator is not None:
+                actuator.close()
+        finally:
+            lease.close()
+        raise
+
+
+def _open_vgamepad_actuator(*, backend: str | None = None) -> Actuator:
     """Lazy virtual Xbox output: vgamepad on Windows, evdev/uinput on Linux.
 
     ``backend`` can explicitly select ``vgamepad`` or ``uinput``.
@@ -367,10 +399,7 @@ def open_vgamepad_actuator(*, settle_seconds: float = UINPUT_SETTLE_SECONDS,
         raise ValueError("backend must be 'vgamepad' or 'uinput'")
     if backend == "vgamepad":
         from .windows_gamepad import open_windows_actuator
-        actuator = open_windows_actuator()
-        if settle_seconds > 0:
-            time.sleep(settle_seconds)
-        return actuator
+        return open_windows_actuator()
     try:
         from evdev import AbsInfo, UInput, ecodes  # type: ignore[import-untyped]
     except ImportError as exc:
@@ -388,7 +417,8 @@ def open_vgamepad_actuator(*, settle_seconds: float = UINPUT_SETTLE_SECONDS,
             "read/write access to /dev/uinput (usually by adding it to the `input` "
             "or `uinput` group, then logging in again)."
         ) from exc
-    actuator = _UInputActuator(dev, ecodes)
-    if settle_seconds > 0:
-        time.sleep(settle_seconds)
-    return actuator
+    try:
+        return _UInputActuator(dev, ecodes)
+    except BaseException:
+        dev.close()
+        raise

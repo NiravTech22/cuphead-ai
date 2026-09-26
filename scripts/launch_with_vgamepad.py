@@ -12,7 +12,6 @@ start Cuphead separately first: Wine commonly enumerates XInput only at launch.
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -20,7 +19,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from cuphead.control.actuator import open_vgamepad_actuator  # noqa: E402
+from cuphead.control.session import GamepadSession  # noqa: E402
 
 
 def main() -> int:
@@ -35,28 +34,20 @@ def main() -> int:
     if not command:
         ap.error("provide a game command after --, for example: -- wine /path/to/Cuphead.exe")
 
-    actuator = open_vgamepad_actuator()
-    print("Virtual Xbox 360 controller is ready; starting Cuphead now.", flush=True)
     try:
-        child = subprocess.Popen(command)
-    except OSError as exc:
-        actuator.close()
+        with GamepadSession(command) as session:
+            print("Virtual Xbox 360 controller is ready; Cuphead started.", flush=True)
+            try:
+                if args.keep_alive:
+                    print("Keeping the virtual pad alive. Press Ctrl+C when the game exits.", flush=True)
+                    while True:
+                        time.sleep(0.25)
+                return session.child.wait()
+            except KeyboardInterrupt:
+                return 130
+    except (OSError, RuntimeError, ValueError) as exc:
         print(f"FAIL: could not start {command[0]!r}: {exc}", file=sys.stderr)
         return 2
-
-    try:
-        if args.keep_alive:
-            print("Keeping the virtual pad alive. Press Ctrl+C when the game exits.", flush=True)
-            while True:
-                time.sleep(0.25)
-        return child.wait()
-    except KeyboardInterrupt:
-        print("Stopping virtual controller.", file=sys.stderr)
-        if child.poll() is None:
-            child.terminate()
-        return 130
-    finally:
-        actuator.close()
 
 
 if __name__ == "__main__":

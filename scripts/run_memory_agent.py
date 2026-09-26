@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import platform
 import signal
 import statistics
@@ -61,12 +62,16 @@ def main():
     args = parser.parse_args()
     if args.real and args.controller == "keyboard" and platform.system() == "Windows":
         parser.error("Windows control requires --controller gamepad; keyboard control uses X11")
-    if args.max_steps < 1 or args.max_seconds <= 0:
+    if args.max_steps < 1 or not math.isfinite(args.max_seconds) or args.max_seconds <= 0:
         parser.error("positive step/time budgets required")
     if args.real and args.route is None:
         parser.error("--real requires --route with calibrated game screenshots")
     if args.launch and not args.real:
         parser.error("--launch is only supported with --real")
+    if args.launch == []:
+        parser.error("--launch needs a command")
+    if args.real and args.controller == "gamepad" and platform.system() == "Windows" and not args.launch:
+        parser.error("Windows gamepad control requires --launch Cuphead.exe; close the game first")
     if args.record_video and (not args.real or args.record_video.suffix.lower() != ".avi"):
         parser.error("--record-video requires --real and an .avi output path")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -147,7 +152,7 @@ def main():
         print(json.dumps(result, indent=2))
         return 0
 
-    from cuphead.control.actuator import open_vgamepad_actuator
+    from cuphead.control.session import GamepadSession
     from cuphead.control.timed_input import TimedExecutor
     from cuphead.control.x11_keyboard import X11KeyboardActuator
     from cuphead.memory.latent_bank import LatentBank
@@ -181,7 +186,7 @@ def main():
     )
     if bank.dimension != encoder.output_dim:
         raise ValueError("bank dimension differs from encoder")
-    source = actuator = child = recorder = None
+    source = actuator = child = recorder = session = None
     result = {
         "environment": "live_cuphead",
         "cuphead_victory_verified": False,
@@ -198,8 +203,10 @@ def main():
     previous = signal.signal(signal.SIGTERM, interrupted)
     try:
         if args.controller == "gamepad":
-            actuator = open_vgamepad_actuator()
-        if args.launch:
+            session = GamepadSession(args.launch)
+            session.__enter__()
+            actuator, child = session.actuator, session.child
+        elif args.launch:
             child = subprocess.Popen(
                 args.launch, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
@@ -284,35 +291,35 @@ def main():
         result["status"] = "error"
         result["error"] = f"{type(exc).__name__}: {exc}"
     finally:
-        cleanup_errors = []
-        for resource in (actuator, recorder, source):
-            if resource is not None:
-                try:
-                    resource.close()
-                except Exception as exc:  # noqa: BLE001 -- finish all remaining cleanup
-                    cleanup_errors.append(f"{type(resource).__name__}: {exc}")
-        if recorder:
-            result["video"] = recorder.summary()
-        if child and child.poll() is None:
-            try:
-                child.terminate()
-                try:
-                    child.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    child.kill()
-                    child.wait()
-            except OSError as exc:
-                cleanup_errors.append(f"game process: {exc}")
-        signal.signal(signal.SIGTERM, previous)
         try:
-            bank.save(bank_path)
-        except OSError as exc:
-            cleanup_errors.append(f"saving bank: {exc}")
-        if cleanup_errors:
-            result["cleanup_errors"] = cleanup_errors
-            result["status"] = "error"
-        result["transitions"] = len(bank)
-        output.write_text(json.dumps(result, indent=2) + "\n")
+            cleanup_errors = []
+            for resource, method in ((actuator, "neutral" if session else "close"),
+                                     (recorder, "close"), (source, "close")):
+                if resource is not None:
+                    try:
+                        getattr(resource, method)()
+                    except Exception as exc:  # noqa: BLE001 -- finish all remaining cleanup
+                        cleanup_errors.append(f"{type(resource).__name__}: {exc}")
+            if recorder:
+                try:
+                    result["video"] = recorder.summary()
+                except Exception as exc:
+                    cleanup_errors.append(f"video summary: {exc}")
+            try:
+                bank.save(bank_path)
+            except Exception as exc:
+                cleanup_errors.append(f"saving bank: {exc}")
+            if cleanup_errors:
+                result["cleanup_errors"] = cleanup_errors
+                result["status"] = "error"
+            result["transitions"] = len(bank)
+            output.write_text(json.dumps(result, indent=2) + "\n")
+        finally:
+            try:
+                if session is not None:
+                    session.close()
+            finally:
+                signal.signal(signal.SIGTERM, previous)
     print(json.dumps(result, indent=2))
     return 0 if result["status"] in {"won", "goal_reached"} else 1
 

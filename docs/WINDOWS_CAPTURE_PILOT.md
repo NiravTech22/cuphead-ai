@@ -4,17 +4,21 @@
 vgamepad reports. It uses an untrained, seeded forward/jump/shoot exploration
 policy. It does not update model weights or the frozen-encoder memory bank.
 
-Create the controller before launching Cuphead. Attaching a new controller to
-an existing keyboard session can assign it to player two. Inspect both the
-character and HUD before accepting a run as single-player data.
+The pilot requires `--launch` pointing directly to Cuphead.exe. Close any
+existing Cuphead session first. Attaching a new controller to an existing
+keyboard session can assign it to player two, so this is now rejected.
+Inspect both the character and HUD before accepting a run as single-player data.
 
 ```powershell
 .venv/Scripts/python.exe scripts/windows_capture_pilot.py --output data/recordings/unique_run --seconds 300 --launch "C:/GOG Games/Cuphead/Cuphead.exe"
 ```
 
-The output directory must be new. The game remains open after the pilot exits.
-The controller releases input on exit or loss of focus. Setup waits at most
-15 minutes; collection ends after the configured wall-clock budget.
+The output directory must be new. When collection stops, the pilot releases
+input, closes capture and writes its summary, then keeps the controller
+connected until Cuphead closes. Keep its terminal open and close the game
+normally to finish. Repeated Ctrl+C during this wait does not disconnect the
+controller. Setup waits at most 15 minutes; collection ends after the configured
+wall-clock budget. See [controller recovery](CONTROLLER_RECOVERY.md).
 
 During setup, inspect `latest.png`, then write a unique command ID to
 `command.json` in the output directory:

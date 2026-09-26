@@ -9,10 +9,10 @@ from __future__ import annotations
 import argparse
 import ctypes
 import json
+import math
 import random
 import queue
 import threading
-import subprocess
 import sys
 import time
 from dataclasses import asdict
@@ -21,7 +21,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'src'))
 
-from cuphead.control.actuator import open_vgamepad_actuator
+from cuphead.control.session import GamepadSession
 from cuphead.control.timed_input import ControlInput
 from cuphead.perception.capture import open_screen_source
 
@@ -57,6 +57,10 @@ def main():
     args = parser.parse_args()
     if not 0 < args.seconds <= 3600 or not 0 < args.fps <= 60:
         parser.error('seconds must be in (0,3600], fps in (0,60]')
+    if not math.isfinite(args.setup_seconds) or args.setup_seconds <= 0:
+        parser.error('setup-seconds must be positive and finite')
+    if args.launch is None:
+        parser.error('--launch must name Cuphead.exe; close any existing game first')
     args.output.mkdir(parents=True, exist_ok=False)
     (args.output / 'frames').mkdir()
     incoming = queue.Queue()
@@ -82,7 +86,7 @@ def main():
     retries = 0
     retry_until = 0
 
-    actuator = source = None
+    actuator = source = session = None
     rng = random.Random(args.seed)
     count = 0
     started = None
@@ -97,17 +101,22 @@ def main():
     gaps = []
     setup_deadline = time.perf_counter() + args.setup_seconds
     try:
-        actuator = open_vgamepad_actuator(settle_seconds=0.5)
-        if args.launch:
-            subprocess.Popen([str(args.launch), '-screen-fullscreen', '1',
-                              '-screen-width', '1280', '-screen-height', '720'],
-                             cwd=args.launch.parent)
-            time.sleep(6)
+        session = GamepadSession(
+            [str(args.launch), '-screen-fullscreen', '1',
+             '-screen-width', '1280', '-screen-height', '720'],
+            launch_kwargs={'cwd': args.launch.parent},
+        )
+        session.__enter__()
+        actuator = session.actuator
+        time.sleep(6)
         source = open_screen_source(timeout=2)
         print(json.dumps({'status': 'ready', 'command': str(args.output / 'command.json')}), flush=True)
         with (args.output / 'frames.jsonl').open('x') as frames, (args.output / 'commands.jsonl').open('x') as commands:
             while True:
                 tick = time.perf_counter()
+                if session.child.poll() is not None:
+                    status = 'game_exited'
+                    break
                 if not incoming.empty():
                     stdin_command = incoming.get_nowait()
                 command_path = args.output / 'command.json'
@@ -115,6 +124,8 @@ def main():
                     try:
                         command = stdin_command if stdin_command is not None else json.loads(command_path.read_text())
                     except (ValueError, OSError):
+                        command = {}
+                    if not isinstance(command, dict):
                         command = {}
                     if command.get('id') is not None and command['id'] != last_id and (
                         command.get('mode') == 'stop' or game_focused()
@@ -220,20 +231,32 @@ def main():
         status = f'error: {type(exc).__name__}: {exc}'
         print(status, flush=True)
     finally:
-        for resource in (actuator, source):
-            if resource is not None:
-                resource.close()
-        summary = {'status': status, 'frames': count, 'policy': 'untrained_seeded_exploration',
-                   'retry_count': retries,
-                   'seed': args.seed, 'training_performed': False, 'cuphead_victory_verified': False,
-                   'labels_verified': False, 'resolution': [256,256], 'target_fps': args.fps,
-                   'elapsed_seconds': None if started is None else time.perf_counter()-started,
-                   'max_capture_gap_seconds': max(gaps, default=0),
-                   'mean_capture_gap_seconds': sum(gaps)/len(gaps) if gaps else None,
-                   'action_semantics': 'held controller report at capture; action_t is report publish timestamp'}
-        (args.output / 'summary.json').write_text(json.dumps(summary, indent=2))
-        print(json.dumps(summary), flush=True)
+        cleanup_errors = []
+        try:
+            for resource, method in ((actuator, 'neutral'), (source, 'close')):
+                if resource is not None:
+                    try:
+                        getattr(resource, method)()
+                    except Exception as exc:
+                        cleanup_errors.append(f'{method}: {type(exc).__name__}: {exc}')
+            summary = {'status': status, 'frames': count, 'policy': 'untrained_seeded_exploration',
+                       'retry_count': retries,
+                       'seed': args.seed, 'training_performed': False, 'cuphead_victory_verified': False,
+                       'labels_verified': False, 'resolution': [256,256], 'target_fps': args.fps,
+                       'elapsed_seconds': None if started is None else time.perf_counter()-started,
+                       'max_capture_gap_seconds': max(gaps, default=0),
+                       'mean_capture_gap_seconds': sum(gaps)/len(gaps) if gaps else None,
+                       'action_semantics': 'held controller report at capture; action_t is report publish timestamp'}
+            if cleanup_errors:
+                summary['cleanup_errors'] = cleanup_errors
+                summary['status'] = 'cleanup_error'
+            (args.output / 'summary.json').write_text(json.dumps(summary, indent=2))
+            print(json.dumps(summary), flush=True)
+        finally:
+            if session is not None:
+                session.close()
+    return 1 if status.startswith('error:') or status == 'setup_timeout' or cleanup_errors else 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

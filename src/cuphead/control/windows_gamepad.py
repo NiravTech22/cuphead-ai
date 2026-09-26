@@ -11,6 +11,7 @@ class WindowsGamepadActuator:
     def __init__(self, pad, buttons):
         self._pad = pad
         self._buttons = buttons
+        self._lease = None
         self.neutral()
 
     def _require_open(self):
@@ -58,6 +59,9 @@ class WindowsGamepadActuator:
                 self.neutral()
             finally:
                 self._pad = None
+                if self._lease is not None:
+                    self._lease.close()
+                    self._lease = None
 
 
 def open_windows_actuator():

@@ -34,8 +34,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import subprocess
 import time
+from contextlib import ExitStack
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -73,22 +73,22 @@ def run(
 ) -> dict:
     actions = sample_actions(trials)
 
-    if mode == "synthetic":
-        actuator, source = synthetic_round_trip(respond_after_frames=1, fps=60.0)
-    else:
-        from cuphead.control.actuator import open_vgamepad_actuator
-        from cuphead.perception.capture import open_screen_source
-
-        actuator = open_vgamepad_actuator()
-        if launch_command:
-            # Wine enumerates XInput devices at startup. Keep this uinput
-            # device alive while starting Cuphead; a pad created afterward
-            # often remains invisible to the game.
-            subprocess.Popen(launch_command)
-            time.sleep(2.0)
-        source = open_screen_source()
-
+    resources = ExitStack()
+    actuator = None
     try:
+        if mode == "synthetic":
+            actuator, source = synthetic_round_trip(respond_after_frames=1, fps=60.0)
+            resources.callback(actuator.close)
+        else:
+            from cuphead.control.session import GamepadSession
+            from cuphead.perception.capture import open_screen_source
+
+            session = resources.enter_context(GamepadSession(launch_command))
+            actuator = session.actuator
+            if launch_command:
+                time.sleep(2.0)
+            source = open_screen_source()
+        resources.callback(source.close)
         report = measure_many(actuator, source, actions)
     except LatencyTimeoutError as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
@@ -104,8 +104,12 @@ def run(
         )
         raise SystemExit(2)
     finally:
-        actuator.close()
-        source.close()
+        # Release input before capture cleanup, even if capture.close() fails.
+        try:
+            if mode != "synthetic" and actuator is not None:
+                actuator.neutral()
+        finally:
+            resources.close()
 
     passed = report.within_budget(p50_ms=p50_budget_ms, p99_ms=p99_budget_ms)
 

@@ -97,11 +97,14 @@ confirm/movement were verified, so use the explicit keyboard fallback:
   -screen-fullscreen 0 -screen-width 960 -screen-height 540
 ```
 
-Omit `--launch` to attach to an already open game. Gamepad mode creates the pad
-before launch. Keyboard mode targets the Cuphead X11 window; customized game
-bindings require updating its explicit key mapping. The real runner owns and
-cleans up only the game process it launched, saves its bank on interruption, and
-releases controller input on exit.
+Linux keyboard mode can omit `--launch` to attach to an already open game.
+Windows gamepad mode requires a direct `--launch Cuphead.exe` and rejects an
+existing game. Gamepad mode creates the pad before launch. Keyboard mode targets
+the Cuphead X11 window; customized game bindings require updating its explicit
+key mapping. The runner saves its bank on interruption and releases input;
+it no longer forcibly terminates the game. For a launched gamepad session it
+keeps the controller connected until Cuphead closes. Keep the terminal open
+during this wait. See [controller recovery](CONTROLLER_RECOVERY.md).
 
 ## Live navigation evidence
 

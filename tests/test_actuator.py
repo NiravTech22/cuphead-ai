@@ -12,6 +12,7 @@ and a fake device -- no /dev/uinput, no root, no evdev installed.
 
 import sys
 import unittest
+from unittest.mock import Mock
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -301,6 +302,16 @@ class TestUInputWritePath(unittest.TestCase):
         self.assertTrue(all(v == 0 for _, _, v in self.dev.writes))
         # A pad closed mid-hold leaves the game with a stuck input.
         self.assertEqual(self.written()["ABS_X"], 0)
+
+    def test_close_still_disconnects_and_releases_lease_if_neutral_fails(self):
+        lease = Mock()
+        self.act._lease = lease
+        self.act.neutral = Mock(side_effect=OSError("device gone"))
+        with self.assertRaises(OSError):
+            self.act.close()
+        self.assertTrue(self.dev.closed)
+        lease.close.assert_called_once()
+        self.act.close()
 
 
 if __name__ == "__main__":

@@ -346,7 +346,9 @@ vgamepad requires its ViGEmBus driver. The Windows game source uses the primary 
 .venv\Scripts\python.exe scripts/launch_with_vgamepad.py -- "C:\GOG Games\Cuphead\Cuphead.exe"
 ```
 
-Replace the executable path with your installation. A runner using its own `--launch` option creates its own controller; avoid creating an additional competing virtual pad.
+Replace the executable path with your installation. Use one controller-owning script per session. For capture, navigation, or latency measurement, use that script's own `--launch` option. Do not start `launch_with_vgamepad.py` alongside it; duplicate controller owners are rejected.
+
+Windows gamepad sessions require a direct `Cuphead.exe` launch and reject an already running game, to avoid attaching as player two. When automation stops or fails, it releases input and keeps the controller connected until you close Cuphead normally. Keep the terminal open during this wait. See [controller recovery](docs/CONTROLLER_RECOVERY.md) for the workflow and limits.
 
 ### Hardware-free checks
 
@@ -367,7 +369,7 @@ After provisioning memory dependencies and encoder assets:
 .venv\Scripts\python.exe scripts/run_memory_agent.py --real --controller gamepad --navigation-only --route data/landmarks/forest_follies.json --bank data/memory/navigation.json --max-seconds 90 --max-steps 500 --launch "C:\GOG Games\Cuphead\Cuphead.exe"
 ```
 
-References must match the observed UI and save setup. `--navigation-only` stops at the route goal. Add `--record-video experiments/navigation_review.avi` before `--launch` for independent video evidence. Keep `--launch` and its game command last because it consumes all remaining arguments. Omitting `--launch` attaches to an existing game subject to controller enumeration and capture setup.
+References must match the observed UI and save setup. `--navigation-only` stops automation at the route goal, then keeps the controller connected until the game closes. Add `--record-video experiments/navigation_review.avi` before `--launch` for independent video evidence. Keep `--launch` and its game command last because it consumes all remaining arguments. Windows gamepad mode requires `--launch`; the Linux keyboard fallback can attach to an existing game.
 
 Linux/Wine retains an explicit `--controller keyboard` X11 fallback and the controller route. Historical Linux backend constraints appear in [the memory guide](docs/FROZEN_LATENT_MEMORY.md); they do not establish Windows behavior.
 
